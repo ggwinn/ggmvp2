@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import './Dashboard.css';
 
 function Dashboard({ name, email, onLogout }) {
@@ -9,10 +11,35 @@ function Dashboard({ name, email, onLogout }) {
     const [itemType, setItemType] = useState('jeans');
     const [condition, setCondition] = useState('');
     const [washInstructions, setWashInstructions] = useState('');
-    const [dateAvailable, setDateAvailable] = useState('');
-    const [price, setPrice] = useState('');
+    const [startDate, setStartDate] = useState(null);
+    const [endDate, setEndDate] = useState(null);
+    const [pricePerDay, setPricePerDay] = useState('');
+    const [totalPrice, setTotalPrice] = useState(0);
     const [image, setImage] = useState(null);
     const [message, setMessage] = useState('');
+    
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+
+    // Calculate total price when dates are selected
+    const calculateTotalPrice = () => {
+        if (startDate && endDate && pricePerDay) {
+            const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+            setTotalPrice(days * parseFloat(pricePerDay));
+        }
+    };
+
+    // Handle search
+    const handleSearch = async () => {
+        if (!searchQuery) return;
+        try {
+            const response = await axios.get(`/search?query=${encodeURIComponent(searchQuery)}`);
+            setSearchResults(response.data.listings || []);
+        } catch (error) {
+            setMessage('Error searching listings: ' + (error.response?.data?.message || error.message));
+        }
+    };
 
     // Handle form submission for posting a listing
     const handlePostListing = async (e) => {
@@ -24,26 +51,29 @@ function Dashboard({ name, email, onLogout }) {
         formData.append('itemType', itemType);
         formData.append('condition', condition);
         formData.append('washInstructions', washInstructions);
-        formData.append('dateAvailable', dateAvailable);
-        formData.append('price', price);
+        formData.append('startDate', startDate.toISOString());
+        formData.append('endDate', endDate.toISOString());
+        formData.append('pricePerDay', pricePerDay);
+        formData.append('totalPrice', totalPrice);
         if (image) formData.append('image', image);
         
         try {
             const response = await axios.post('/listings', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
-                    'user-id': email // Assuming email is used as a unique identifier
+                    'user-id': email
                 }
             });
             setMessage(response.data.message || 'Listing posted successfully!');
-            // Clear form fields
             setTitle('');
             setSize('S');
             setItemType('jeans');
             setCondition('');
             setWashInstructions('');
-            setDateAvailable('');
-            setPrice('');
+            setStartDate(null);
+            setEndDate(null);
+            setPricePerDay('');
+            setTotalPrice(0);
             setImage(null);
         } catch (error) {
             setMessage('Error posting listing: ' + (error.response?.data?.message || error.message));
@@ -58,13 +88,41 @@ function Dashboard({ name, email, onLogout }) {
                 <p>You've successfully logged in with: {email}</p>
             </div>
 
+            {/* Search Feature */}
+            <div className="search-section">
+                <input 
+                    type="text" 
+                    placeholder="Search listings..." 
+                    value={searchQuery} 
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <button onClick={handleSearch}>Search</button>
+            </div>
+            
+            {/* Display search results */}
+            <div className="search-results">
+                {searchResults.length > 0 ? (
+                    searchResults.map((listing) => (
+                        <div key={listing.id} className="listing">
+                            <h3>{listing.title}</h3>
+                            <p>Size: {listing.size}</p>
+                            <p>Type: {listing.itemType}</p>
+                            <p>Condition: {listing.condition}</p>
+                            {listing.imageURL && <img src={listing.imageURL} alt={listing.title} className="listing-image" />}
+                        </div>
+                    ))
+                ) : (
+                    <p>No results found.</p>
+                )}
+            </div>
+            
             {/* Clothing Listing Form */}
             <div className="listing-form">
                 <h3>Post a Clothing Listing</h3>
                 <form onSubmit={handlePostListing}>
                     <label>Title</label>
                     <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
-
+                    
                     <label>Size</label>
                     <select value={size} onChange={(e) => setSize(e.target.value)}>
                         <option value="S">S</option>
@@ -82,19 +140,39 @@ function Dashboard({ name, email, onLogout }) {
                         <option value="sweater">Sweater</option>
                         <option value="shirt">Shirt</option>
                     </select>
-
+                    
                     <label>Condition</label>
                     <input type="text" value={condition} onChange={(e) => setCondition(e.target.value)} required />
-
+                    
                     <label>Wash Instructions</label>
                     <input type="text" value={washInstructions} onChange={(e) => setWashInstructions(e.target.value)} required />
-
-                    <label>Date Available</label>
-                    <input type="date" value={dateAvailable} onChange={(e) => setDateAvailable(e.target.value)} required />
-
+                    
+                    <label>Available Dates</label>
+                    <div className="date-picker">
+                        <DatePicker 
+                            selected={startDate} 
+                            onChange={(date) => { setStartDate(date); calculateTotalPrice(); }}
+                            selectsStart
+                            startDate={startDate}
+                            endDate={endDate}
+                            placeholderText="Start Date"
+                        />
+                        <DatePicker 
+                            selected={endDate} 
+                            onChange={(date) => { setEndDate(date); calculateTotalPrice(); }}
+                            selectsEnd
+                            startDate={startDate}
+                            endDate={endDate}
+                            minDate={startDate}
+                            placeholderText="End Date"
+                        />
+                    </div>
+                    
                     <label>Price per day ($)</label>
-                    <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required />
-
+                    <input type="number" value={pricePerDay} onChange={(e) => { setPricePerDay(e.target.value); calculateTotalPrice(); }} required />
+                    
+                    <p>Total Price: ${totalPrice.toFixed(2)}</p>
+                    
                     <label>Upload Image</label>
                     <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} required />
 

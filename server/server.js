@@ -192,6 +192,26 @@ app.post('/listings', upload.single('image'), async (req, res) => {
   }
 });
 
+// Search Listings Endpoint
+app.get('/search', async (req, res) => {
+  const { query } = req.query;
+  console.log(`Received search request for: ${query}`);
+
+  try {
+      const { data, error } = await supabase
+          .from('listings')
+          .select('*')
+          .or(`title.ilike.%${query}%,size.ilike.%${query}%,itemType.ilike.%${query}%,condition.ilike.%${query}%`);
+
+      if (error) throw error;
+
+      res.json({ success: true, listings: data });
+  } catch (error) {
+      console.error('Search error:', error);
+      res.status(500).json({ success: false, message: error.message || 'Error searching listings' });
+  }
+});
+
 // ========================================================
 // Serve React Frontend
 // ========================================================

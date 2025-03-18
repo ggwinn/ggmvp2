@@ -3,7 +3,7 @@
 This guide documents the implementation of a clothing marketplace application for Spelman College students. The application allows users to register, log in, and post clothing listings for others to borrow or rent.
 
 To get started, clone the following repo: https://github.com/amoretti86/digitalentrepreneurship-lab4b
-You may view a reference version of the deployed app here: 
+You may view a reference version of the deployed app here: https://spelman-marketplace-hw4b-05f22265fae4.herokuapp.com
 
 ## Overview of Implementation
 
@@ -418,6 +418,14 @@ To deploy this application on Heroku:
    - SUPABASE_URL
    - SUPABASE_SERVICE_ROLE_KEY
    - SUPABASE_ANON_KEY
+
+If needed, run 
+```
+heroku config:set SUPABASE_URL="your_supabase_url"
+heroku config:set SUPABASE_SERVICE_ROLE_KEY="your_service_role_key"
+heroku config:set OTHER_ENV_VAR="your_value"
+```
+
 4. Deploy the application
 
 Note: Since we're using Supabase for the database, you don't need to enable the Postgres addon on Heroku.
