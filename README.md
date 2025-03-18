@@ -2,7 +2,8 @@
 
 This guide documents the implementation of a clothing marketplace application for Spelman College students. The application allows users to register, log in, and post clothing listings for others to borrow or rent.
 
-To get started, clone the following repo: 
+To get started, clone the following repo: https://github.com/amoretti86/digitalentrepreneurship-lab4b
+You may view a reference version of the deployed app here: 
 
 ## Overview of Implementation
 
