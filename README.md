@@ -1,154 +1,426 @@
-# HW 4: Registration App Authentication with Supabase
+# Spelman Clothing Marketplace - Implementation Guide
 
-## 🛠️ Why Use Supabase?
-Authentication can be error-prone when building an application. Handling **user registration, email verification, login, and database management** can be painful with traditional setups that require managing your own database and email services. 
+This guide documents the implementation of a clothing marketplace application for Spelman College students. The application allows users to register, log in, and post clothing listings for others to borrow or rent.
 
-**Supabase simplifies authentication** by providing a backend-as-a-service solution with built-in **PostgreSQL, authentication, and email handling**. With Supabase, we no longer need to manually manage user accounts, write our own authentication logic, or send emails ourselves.
+To get started, clone the following repo: 
 
-This new version of our **Registration App** replaces our old authentication system with Supabase, significantly reducing complexity and making it easier to maintain. 
+## Overview of Implementation
 
-Clone this repo to get started: https://github.com/amoretti86/digitalentrepreneurship-lab3b
+In this project, we:
+1. Created a database structure in Supabase
+2. Set up authentication with email validation for Spelman/Morehouse domains
+3. Implemented file storage for clothing images
+4. Created listings functionality for users to post items
+5. Applied proper security policies
 
----
+## Backend Implementation (server.js)
 
-## 🔄 What Changed?
-### ❌ Removed Files
-1. **`db.js`** – We no longer need to manually create a PostgreSQL database and handle users. Supabase manages the database for us.
-2. **`email.js`** – Supabase handles email verification automatically, eliminating the need for our custom email-sending logic.
-3. **`migration.js`** – Since Supabase manages the database schema, we no longer need to run manual migrations.
-4. **Heroku Postgres Add-On** – Supabase provides a **fully managed PostgreSQL database**, so we don't need to add a separate database on Heroku.
+### Database Setup in Supabase
 
----
+1. **Create a "listings" table**:
+   - Navigate to Supabase dashboard > Table Editor
+   - Click "Create a new table"
+   - Name: `listings`
+   - Columns:
+     - `id` (type: uuid, primary key, default: uuid_generate_v4())
+     - `created_at` (type: timestamp with time zone, default: now())
+     - `user` (type: uuid, foreign key to auth.users)
+     - `title` (type: text)
+     - `size` (type: text)
+     - `itemType` (type: text)
+     - `condition` (type: text)
+     - `washInstructions` (type: text)
+     - `dateAvailable` (type: date)
+     - `price` (type: numeric)
+     - `imageURL` (type: text)
 
-## 🛠️ How to Set Up Supabase
+2. **Create a storage bucket**:
+   - Navigate to Storage in Supabase
+   - Click "Create a new bucket"
+   - Name: `clothing-images`
+   - Access: Private
 
-### 1️⃣ **Sign Up for Supabase**
-1. Go to [https://supabase.com/](https://supabase.com/) and create an account.
-2. Click **"New Project"** and give it a name.
-3. Choose a strong password for the database and click **"Create new project"**.
-4. Wait for Supabase to set up your database (this may take a few seconds).
+3. **Set up Row Level Security policies**:
+   - For the listings table:
+     ```sql
+     -- Enable RLS on the listings table
+     ALTER TABLE listings ENABLE ROW LEVEL SECURITY;
 
-### 2️⃣ **Obtain Your Supabase Keys**
-Once your project is created:
-1. Go to **"Settings" → "API"** in the Supabase Dashboard.
-2. Copy the following values:
-   - **Supabase URL**
-   - **Anon Key**
-   - **Service Role Key** (Needed for admin operations)
+     -- Create policy for authenticated users to insert listings
+     CREATE POLICY "Allow authenticated users to insert listings"
+     ON listings
+     FOR INSERT
+     TO authenticated
+     WITH CHECK (true);
+     
+     -- Create policy for users to view all listings
+     CREATE POLICY "Allow public to select listings"
+     ON listings
+     FOR SELECT
+     TO authenticated
+     USING (true);
+     ```
 
----
+   - For the storage bucket:
+     ```sql
+     -- Create policy for authenticated users to upload files
+     CREATE POLICY "Allow authenticated uploads"
+     ON storage.objects
+     FOR INSERT
+     TO authenticated
+     WITH CHECK (bucket_id = 'clothing-images');
 
-## 🌍 Updating the Backend
+     -- Create policy for public to view images
+     CREATE POLICY "Allow public read access"
+     ON storage.objects
+     FOR SELECT
+     TO public
+     USING (bucket_id = 'clothing-images');
+     ```
 
-### 3️⃣ **Set Up Environment Variables**
-In your backend project, create a `.env` file and add:
-```bash
-SUPABASE_URL=your-supabase-url
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-PORT=5000
-```
-📌 **Check your spam folder** for the email verification code when signing up!
+### Authentication Endpoints
 
-### 4️⃣ **Install Dependencies**
-We need the Supabase SDK to connect to our authentication system. Install it by running:
-```bash
-npm install @supabase/supabase-js
-```
+We implemented several authentication endpoints in `server.js`:
 
-### 5️⃣ **Update `server.js` to Use Supabase**
-Modify the backend to use Supabase for authentication:
 ```javascript
-const { createClient } = require("@supabase/supabase-js");
-require("dotenv").config();
+// Registration endpoint with email domain validation
+app.post('/register', async (req, res) => {
+    const { name, email, password } = req.body;
+    
+    // Email validation for Spelman and Morehouse domains
+    const emailPattern = /@(spelman\.edu|morehouse\.edu)$/;
+    if (!emailPattern.test(email)) {
+        return res.status(400).json({ success: false, message: 'Email must end with @spelman.edu or @morehouse.edu.' });
+    }
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-```
+    try {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { name } }
+        });
 
-### 6️⃣ **Registering a User**
-Replace manual database inserts with Supabase's authentication system:
-```javascript
-const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { name } } // Store additional user info
+        if (error) throw error;
+
+        res.json({ success: true, message: 'Registration successful. Check your email for verification.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message || 'Error registering user' });
+    }
+});
+
+// Login endpoint
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+
+        res.json({ success: true, message: 'Login successful', user: data.user });
+    } catch (error) {
+        res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+});
+
+// Email verification using 6-digit code
+app.post('/verify', async (req, res) => {
+    const { email, verificationCode } = req.body;
+    
+    try {
+        const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token: verificationCode,
+            type: 'signup'
+        });
+
+        if (error) {
+            return res.status(400).json({ success: false, message: 'Invalid verification code.' });
+        }
+
+        res.json({ success: true, message: 'Email verified successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error verifying email' });
+    }
 });
 ```
 
-### 7️⃣ **Email Verification Using a 6-Digit Code**
-Instead of email links, users enter a **6-digit verification code**:
+### Listings Endpoint
+
+We added a new endpoint to handle clothing listings with file uploads:
+
 ```javascript
-const { data, error } = await supabase.auth.verifyOtp({
-    email,
-    token: verificationCode,  // The 6-digit code from the email
-    type: "signup"
+// Endpoint to post a new clothing listing
+app.post('/listings', upload.single('image'), async (req, res) => {
+    const { title, size, itemType, condition, washInstructions, dateAvailable, price } = req.body;
+    const { file } = req;
+    const userEmail = req.headers['user-id'];
+
+    console.log("Received listing data:", {
+        userEmail,
+        title,
+        size,
+        itemType,
+        condition,
+        washInstructions,
+        dateAvailable,
+        price,
+        hasFile: !!file
+    });
+
+    if (!userEmail) {
+        return res.status(401).json({ success: false, message: 'User authentication required' });
+    }
+
+    try {
+        // Get the user UUID from the email
+        const { data: authData, error: authError } = await supabase.auth
+            .admin.listUsers();
+            
+        if (authError) {
+            console.error("Error listing users:", authError);
+            throw authError;
+        }
+        
+        // Find the user with the matching email
+        const user = authData.users.find(u => u.email === userEmail);
+        
+        if (!user) {
+            console.error("User not found with email:", userEmail);
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
+        const userId = user.id;
+        console.log("Found user ID:", userId);
+        
+        let imageURL = null;
+
+        if (file) {
+            const fileName = `${Date.now()}_${file.originalname}`;
+            console.log("Uploading file:", fileName);
+            
+            const { data: fileData, error: fileError } = await supabase.storage
+                .from('clothing-images')
+                .upload(fileName, file.buffer, { 
+                    contentType: file.mimetype,
+                    upsert: true
+                });
+
+            if (fileError) {
+                console.error("File upload error:", fileError);
+                throw fileError;
+            }
+            
+            const { data: publicUrlData } = supabase.storage
+                .from('clothing-images')
+                .getPublicUrl(fileName);
+                
+            imageURL = publicUrlData.publicUrl;
+            console.log("File uploaded successfully, URL:", imageURL);
+        }
+
+        console.log("Attempting insert with UUID:", userId);
+        
+        const { data, error } = await supabase
+            .from('listings')
+            .insert([{ 
+                user: userId,
+                title, 
+                size, 
+                itemType, 
+                condition, 
+                washInstructions, 
+                dateAvailable, 
+                price, 
+                imageURL
+            }]);
+
+        if (error) {
+            console.error("Supabase error details:", error);
+            throw error;
+        }
+        
+        console.log("Insert successful, returned data:", data);
+        res.json({ success: true, message: 'Listing posted successfully', listing: data });
+    } catch (error) {
+        console.error("Full error object:", error);
+        res.status(500).json({ success: false, message: error.message || 'Error posting listing' });
+    }
 });
 ```
-📌 **Users must manually enter the verification code from their email.**
 
-### 8️⃣ **Logging In Users**
-Login now uses Supabase authentication:
+## Frontend Implementation
+
+### Authentication Flow (App.js)
+
+The main App.js file handles the authentication flow:
+- Registration form for new users
+- Login form for returning users
+- Email verification
+- Dashboard display after successful authentication
+
+Key components:
+- Toggle between registration and login modes
+- Email domain validation (@spelman.edu or @morehouse.edu)
+- Password management
+- Verification code handling
+
+### Dashboard Implementation (Dashboard.js)
+
+The Dashboard component allows authenticated users to post clothing listings:
+
 ```javascript
-const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-});
+import React, { useState } from 'react';
+import axios from 'axios';
+import './Dashboard.css';
+
+function Dashboard({ name, email, onLogout }) {
+    // State for clothing listing form
+    const [title, setTitle] = useState('');
+    const [size, setSize] = useState('S');
+    const [itemType, setItemType] = useState('jeans');
+    const [condition, setCondition] = useState('');
+    const [washInstructions, setWashInstructions] = useState('');
+    const [dateAvailable, setDateAvailable] = useState('');
+    const [price, setPrice] = useState('');
+    const [image, setImage] = useState(null);
+    const [message, setMessage] = useState('');
+
+    // Handle form submission
+    const handlePostListing = async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('size', size);
+        formData.append('itemType', itemType);
+        formData.append('condition', condition);
+        formData.append('washInstructions', washInstructions);
+        formData.append('dateAvailable', dateAvailable);
+        formData.append('price', price);
+        if (image) formData.append('image', image);
+        
+        try {
+            const response = await axios.post('/listings', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'user-id': email
+                }
+            });
+            setMessage(response.data.message || 'Listing posted successfully!');
+            // Clear form fields
+            setTitle('');
+            setSize('S');
+            setItemType('jeans');
+            setCondition('');
+            setWashInstructions('');
+            setDateAvailable('');
+            setPrice('');
+            setImage(null);
+        } catch (error) {
+            setMessage('Error posting listing: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
+    return (
+        <div className="dashboard">
+            <h2>Welcome to Your Dashboard</h2>
+            <div className="user-greeting">
+                <h3>Hello, {name}! </h3>
+                <p>You've successfully logged in with: {email}</p>
+            </div>
+
+            {/* Clothing Listing Form */}
+            <div className="listing-form">
+                <h3>Post a Clothing Listing</h3>
+                <form onSubmit={handlePostListing}>
+                    <label>Title</label>
+                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
+
+                    <label>Size</label>
+                    <select value={size} onChange={(e) => setSize(e.target.value)}>
+                        <option value="S">S</option>
+                        <option value="M">M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="XXL">XXL</option>
+                    </select>
+
+                    <label>Item Type</label>
+                    <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
+                        <option value="jeans">Jeans</option>
+                        <option value="skirt">Skirt</option>
+                        <option value="pants">Pants</option>
+                        <option value="sweater">Sweater</option>
+                        <option value="shirt">Shirt</option>
+                    </select>
+
+                    <label>Condition</label>
+                    <input type="text" value={condition} onChange={(e) => setCondition(e.target.value)} required />
+
+                    <label>Wash Instructions</label>
+                    <input type="text" value={washInstructions} onChange={(e) => setWashInstructions(e.target.value)} required />
+
+                    <label>Date Available</label>
+                    <input type="date" value={dateAvailable} onChange={(e) => setDateAvailable(e.target.value)} required />
+
+                    <label>Price per day ($)</label>
+                    <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required />
+
+                    <label>Upload Image</label>
+                    <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} required />
+
+                    <button type="submit">Post Listing</button>
+                </form>
+            </div>
+            
+            {message && <p className="message">{message}</p>}
+
+            <button className="logout-btn" onClick={onLogout}>Log Out</button>
+        </div>
+    );
+}
 ```
 
----
+## Troubleshooting Steps
 
-## 🗄️ Accessing the Supabase Database
-To view and manage user accounts:
-1. **Go to Supabase Dashboard** → Click **"Authentication"** → **"Users"**.
-2. You can manually verify users, delete accounts, or reset passwords.
-3. To query the database directly, go to **"Database" → "Table Editor"**.
+During implementation, we encountered several issues that required debugging:
 
-📌 You can also query data programmatically using the **Supabase SDK**:
-```javascript
-const { data, error } = await supabase.from("users").select("*");
-```
+1. **Row Level Security Policy Violations**:
+   - Problem: "new row violates row-level security policy" when posting listings
+   - Solution: Created proper RLS policies for both the listings table and storage bucket
 
----
+2. **UUID vs Email Mismatch**:
+   - Problem: "invalid input syntax for type uuid: 'email@spelman.edu'"
+   - Solution: Used Supabase Admin API to look up user UUID from email
 
-## 🚀 Deploying to Heroku
-Since we are using Supabase for authentication and storage, we **no longer need to add Heroku Postgres**.
+3. **Storage Access Issues**:
+   - Problem: File upload permissions
+   - Solution: Added specific policies for the storage bucket
 
-### Steps to Deploy:
-1. **Set environment variables on Heroku**
-```bash
-heroku config:set SUPABASE_URL=your-supabase-url
-heroku config:set SUPABASE_ANON_KEY=your-anon-key
-heroku config:set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-heroku config:set PORT=5000
-```
+## Future Enhancements
 
-2. **Push your code to Heroku**
-```bash
-git add .
-git commit -m "Deploy Supabase backend to Heroku"
-git push heroku main  # or 'master' if using older repo
-```
+The current implementation could be extended with:
+1. A search interface for browsing available clothing
+2. Payment integration with Stripe or Square
+3. Enhanced styling and mobile responsiveness
+4. Return date functionality
+5. User reviews and ratings
+6. Notifications for bookings and returns
 
-3. **Restart the app**
-```bash
-heroku restart
-```
+## Deployment Instructions
 
-4. **Check logs for errors**
-```bash
-heroku logs --tail
-```
+To deploy this application on Heroku:
 
----
+1. Create a new Heroku app
+2. Connect your GitHub repository
+3. Add environment variables:
+   - SUPABASE_URL
+   - SUPABASE_SERVICE_ROLE_KEY
+   - SUPABASE_ANON_KEY
+4. Deploy the application
 
-## 🎯 Summary
-✅ **No need for manual PostgreSQL setup** – Supabase handles it.
-✅ **No need for custom email handling** – Supabase sends verification codes.
-✅ **Faster and easier authentication** with Supabase's built-in auth.
-✅ **Easier database access** via Supabase UI and SDK.
-✅ **Simpler deployment** – Just set environment variables and deploy!
+Note: Since we're using Supabase for the database, you don't need to enable the Postgres addon on Heroku.
 
-This version of the **Registration App** is now **much simpler and more scalable** with Supabase.
+## Conclusion
+
+This implementation provides a solid foundation for a clothing marketplace tailored for Spelman and Morehouse students. The authentication system ensures only students with valid email addresses can access the platform, and the listings functionality allows users to share clothing items with detailed information and images.
