@@ -2,15 +2,37 @@ const express = require('express');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
-const multer = require('multer'); // NEW: Import multer for file uploads
+const multer = require('multer');
+const square = require('square'); // Add Square client
+const { randomUUID } = require('crypto');
+// const nodemailer = require('nodemailer'); // For confirmation emails
 
 // Initialize Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+// Initialize Square client
+const squareClient = new square.SquareClient({
+  accessToken: process.env.SQUARE_ACCESS_TOKEN,
+  environment: process.env.NODE_ENV === 'production' 
+    ? square.SquareEnvironment.Production 
+    : square.SquareEnvironment.Sandbox
+});
+// Configure email transporter (if using)
+/*
+const transporter = nodemailer.createTransport({
+  // Configure based on your email provider
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
+});
+*/
+
 const app = express();
 app.use(express.json());
 
-// NEW: Set up multer for handling file uploads
+// Set up multer for handling file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -58,7 +80,10 @@ app.post('/login', async (req, res) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        res.json({ success: true, message: 'Login successful', user: data.user });
+        // Get the user's name from the user metadata
+        const name = data.user.user_metadata?.name || 'User';
+
+        res.json({ success: true, message: 'Login successful', name, user: data.user });
     } catch (error) {
         console.error('Login error:', error);
         res.status(401).json({ success: false, message: 'Invalid email or password' });
@@ -90,12 +115,12 @@ app.post('/verify', async (req, res) => {
 });
 
 // ========================================================
-// NEW: Clothing Listings API
+// Clothing Listings API
 // ========================================================
 
 // Endpoint to post a new clothing listing
 app.post('/listings', upload.single('image'), async (req, res) => {
-  const { title, size, itemType, condition, washInstructions, dateAvailable, price } = req.body;
+  const { title, size, itemType, condition, washInstructions, startDate, endDate, pricePerDay, totalPrice } = req.body;
   const { file } = req;
   const userEmail = req.headers['user-id']; 
   
@@ -106,8 +131,9 @@ app.post('/listings', upload.single('image'), async (req, res) => {
       itemType,
       condition,
       washInstructions,
-      dateAvailable,
-      price,
+      startDate,
+      endDate,
+      pricePerDay,
       hasFile: !!file
   });
 
@@ -117,7 +143,6 @@ app.post('/listings', upload.single('image'), async (req, res) => {
 
   try {
       // First, get the user UUID from the email
-      // Use the auth API to look up the user
       const { data: authData, error: authError } = await supabase.auth
           .admin.listUsers();
           
@@ -168,16 +193,18 @@ app.post('/listings', upload.single('image'), async (req, res) => {
       const { data, error } = await supabase
           .from('listings')
           .insert([{ 
-              user: userId, // Use UUID instead of email
+              user: userId,
               title, 
               size, 
               itemType, 
               condition, 
               washInstructions, 
-              dateAvailable, 
-              price, 
+              startDate, // Changed from dateAvailable 
+              endDate,   // Added end date
+              pricePerDay, // Changed from price
               imageURL
-          }]);
+          }])
+          .select();
 
       if (error) {
           console.error("Supabase error details:", error);
@@ -185,7 +212,7 @@ app.post('/listings', upload.single('image'), async (req, res) => {
       }
       
       console.log("Insert successful, returned data:", data);
-      res.json({ success: true, message: 'Listing posted successfully', listing: data });
+      res.json({ success: true, message: 'Listing posted successfully', listing: data[0] });
   } catch (error) {
       console.error("Full error object:", error);
       res.status(500).json({ success: false, message: error.message || 'Error posting listing' });
@@ -194,14 +221,20 @@ app.post('/listings', upload.single('image'), async (req, res) => {
 
 // Search Listings Endpoint
 app.get('/search', async (req, res) => {
-  const { query } = req.query;
+  const { query = '' } = req.query;
   console.log(`Received search request for: ${query}`);
 
   try {
-      const { data, error } = await supabase
+      let dbQuery = supabase
           .from('listings')
-          .select('*')
-          .or(`title.ilike.%${query}%,size.ilike.%${query}%,itemType.ilike.%${query}%,condition.ilike.%${query}%`);
+          .select('*');
+          
+      // Only add filter if query is not empty
+      if (query.trim()) {
+          dbQuery = dbQuery.or(`title.ilike.%${query}%,size.ilike.%${query}%,itemType.ilike.%${query}%,condition.ilike.%${query}%`);
+      }
+
+      const { data, error } = await dbQuery;
 
       if (error) throw error;
 
@@ -211,6 +244,210 @@ app.get('/search', async (req, res) => {
       res.status(500).json({ success: false, message: error.message || 'Error searching listings' });
   }
 });
+
+// ========================================================
+// NEW: Rental and Payment API Endpoints
+// ========================================================
+
+// Process payment and create rental record
+app.post('/api/process-payment', async (req, res) => {
+  try {
+    const { sourceId, amount, listingId, startDate, endDate, userEmail } = req.body;
+    
+    if (!sourceId || !amount || !listingId || !startDate || !endDate || !userEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required payment information' 
+      });
+    }
+    
+    console.log(`Processing payment: $${amount} for listing ${listingId}`);
+    
+    // Get user ID from email
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+    if (authError) throw authError;
+    
+    const user = authData.users.find(u => u.email === userEmail);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const userId = user.id;
+    
+    // Get listing details
+    const { data: listingData, error: listingError } = await supabase
+      .from('listings')
+      .select('*')
+      .eq('id', listingId)
+      .single();
+      
+    if (listingError) throw listingError;
+    if (!listingData) {
+      return res.status(404).json({ success: false, message: 'Listing not found' });
+    }
+    
+    // Create a unique idempotency key for this payment
+    const idempotencyKey = randomUUID();
+    
+    // Convert amount to cents for Square API
+    const amountInCents = Math.round(parseFloat(amount) * 100);
+    
+    // Process the payment with Square
+    const payment = await squareClient.paymentsApi.createPayment({
+      sourceId,
+      idempotencyKey,
+      amountMoney: {
+        amount: amountInCents,
+        currency: 'USD'
+      },
+      // Add metadata about the transaction
+      note: `Rental payment for ${listingData.title}`,
+      // Include reference ID for your database
+      referenceId: listingId
+    });
+    
+    if (payment.result && payment.result.payment) {
+      // Payment was successful
+      console.log('Payment successful:', payment.result.payment.id);
+      
+      // Create rental record in Supabase
+      const { data: rentalData, error: rentalError } = await supabase
+        .from('rentals')
+        .insert([{
+          listing_id: listingId,
+          renter_id: userId,
+          start_date: startDate,
+          end_date: endDate,
+          total_amount: amount,
+          payment_id: payment.result.payment.id,
+          status: 'confirmed'
+        }])
+        .select();
+        
+      if (rentalError) throw rentalError;
+      
+      const rentalId = rentalData[0].id;
+      
+      // Optional: Send confirmation email
+      /*
+      await sendConfirmationEmail(
+        userEmail, 
+        listingData, 
+        new Date(startDate), 
+        new Date(endDate), 
+        amount, 
+        rentalId
+      );
+      */
+      
+      return res.json({ 
+        success: true, 
+        paymentId: payment.result.payment.id, 
+        rentalId 
+      });
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Payment processing failed' 
+      });
+    }
+  } catch (error) {
+    console.error('Payment error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message || 'An error occurred during payment processing' 
+    });
+  }
+});
+
+// Get user's rental history
+app.get('/api/rentals', async (req, res) => {
+  const userEmail = req.headers['user-id'];
+  
+  if (!userEmail) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  
+  try {
+    // Get user ID from email
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+    if (authError) throw authError;
+    
+    const user = authData.users.find(u => u.email === userEmail);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const userId = user.id;
+    
+    // Get rentals with listing details
+    const { data, error } = await supabase
+      .from('rentals')
+      .select(`
+        *,
+        listing:listing_id (
+          title, 
+          size, 
+          itemType, 
+          imageURL,
+          pricePerDay
+        )
+      `)
+      .eq('renter_id', userId)
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    res.json({ success: true, rentals: data });
+  } catch (error) {
+    console.error('Error fetching rentals:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error fetching rental history' });
+  }
+});
+
+// Helper function to send confirmation email
+async function sendConfirmationEmail(email, listing, startDate, endDate, amount, rentalId) {
+  try {
+    const formattedStartDate = startDate.toLocaleDateString();
+    const formattedEndDate = endDate.toLocaleDateString();
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Rental Confirmation - Campus Closet',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Rental is Confirmed!</h2>
+          <p>Thank you for using Campus Closet. Your rental has been successfully processed.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #2c3e50;">Rental Details</h3>
+            <p><strong>Item:</strong> ${listing.title}</p>
+            <p><strong>Size:</strong> ${listing.size}</p>
+            <p><strong>Rental Period:</strong> ${formattedStartDate} to ${formattedEndDate}</p>
+            <p><strong>Total Amount:</strong> $${parseFloat(amount).toFixed(2)}</p>
+            <p><strong>Confirmation ID:</strong> ${rentalId}</p>
+          </div>
+          
+          <p>You'll be able to pick up your item on the start date of your rental period.</p>
+          <p>If you have any questions, please contact us at support@campuscloset.com.</p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666;">
+            <p>This is an automated email. Please do not reply to this message.</p>
+          </div>
+        </div>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    console.log(`Confirmation email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending confirmation email:', error);
+    // Don't fail the transaction if email sending fails
+    return false;
+  }
+}
 
 // ========================================================
 // Serve React Frontend

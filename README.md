@@ -1,435 +1,258 @@
-# Spelman Clothing Marketplace - Implementation Guide
+# Campus Closet - Clothing Rental Marketplace
 
-This guide documents the implementation of a clothing marketplace application for Spelman College students. The application allows users to register, log in, and post clothing listings for others to borrow or rent.
+Campus Closet is a web application that enables college students to rent clothing items from each other. This application includes user authentication, listing management, and payment processing with Square.
 
-To get started, clone the following repo: https://github.com/amoretti86/digitalentrepreneurship-lab4b
-You may view a reference version of the deployed app here: https://spelman-marketplace-hw4b-05f22265fae4.herokuapp.com
+## Features
 
-## Overview of Implementation
+- User authentication with email verification
+- Create, view, and search clothing listings
+- Rental date selection and availability management
+- Secure payment processing via Square
+- Responsive UI for both desktop and mobile
 
-In this project, we:
-1. Created a database structure in Supabase
-2. Set up authentication with email validation for Spelman/Morehouse domains
-3. Implemented file storage for clothing images
-4. Created listings functionality for users to post items
-5. Applied proper security policies
+## Tech Stack
 
-## Backend Implementation (server.js)
+- **Frontend**: React.js with custom CSS
+- **Backend**: Node.js with Express
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **File Storage**: Supabase Storage
+- **Payment Processing**: Square API
 
-### Database Setup in Supabase
+## Setup Instructions
 
-1. **Create a "listings" table**:
-   - Navigate to Supabase dashboard > Table Editor
-   - Click "Create a new table"
-   - Name: `listings`
-   - Columns:
-     - `id` (type: uuid, primary key, default: uuid_generate_v4())
-     - `created_at` (type: timestamp with time zone, default: now())
-     - `user` (type: uuid, foreign key to auth.users)
-     - `title` (type: text)
-     - `size` (type: text)
-     - `itemType` (type: text)
-     - `condition` (type: text)
-     - `washInstructions` (type: text)
-     - `dateAvailable` (type: date)
-     - `price` (type: numeric)
-     - `imageURL` (type: text)
+### Prerequisites
 
-2. **Create a storage bucket**:
-   - Navigate to Storage in Supabase
-   - Click "Create a new bucket"
-   - Name: `clothing-images`
-   - Access: Private
+- Node.js (v14 or higher)
+- npm or yarn
+- Supabase account
+- Square Developer account
 
-3. **Set up Row Level Security policies**:
-   - For the listings table:
-     ```sql
-     -- Enable RLS on the listings table
-     ALTER TABLE listings ENABLE ROW LEVEL SECURITY;
+### Environment Variables
 
-     -- Create policy for authenticated users to insert listings
-     CREATE POLICY "Allow authenticated users to insert listings"
-     ON listings
-     FOR INSERT
-     TO authenticated
-     WITH CHECK (true);
-     
-     -- Create policy for users to view all listings
-     CREATE POLICY "Allow public to select listings"
-     ON listings
-     FOR SELECT
-     TO authenticated
-     USING (true);
-     ```
+Create a `.env` file in the server directory with the following variables:
 
-   - For the storage bucket:
-     ```sql
-     -- Create policy for authenticated users to upload files
-     CREATE POLICY "Allow authenticated uploads"
-     ON storage.objects
-     FOR INSERT
-     TO authenticated
-     WITH CHECK (bucket_id = 'clothing-images');
+```
+# Supabase Configuration
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-     -- Create policy for public to view images
-     CREATE POLICY "Allow public read access"
-     ON storage.objects
-     FOR SELECT
-     TO public
-     USING (bucket_id = 'clothing-images');
-     ```
+# Square API Credentials (for payment processing)
+SQUARE_ACCESS_TOKEN=your_square_sandbox_access_token
 
-### Authentication Endpoints
-
-We implemented several authentication endpoints in `server.js`:
-
-```javascript
-// Registration endpoint with email domain validation
-app.post('/register', async (req, res) => {
-    const { name, email, password } = req.body;
-    
-    // Email validation for Spelman and Morehouse domains
-    const emailPattern = /@(spelman\.edu|morehouse\.edu)$/;
-    if (!emailPattern.test(email)) {
-        return res.status(400).json({ success: false, message: 'Email must end with @spelman.edu or @morehouse.edu.' });
-    }
-
-    try {
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { name } }
-        });
-
-        if (error) throw error;
-
-        res.json({ success: true, message: 'Registration successful. Check your email for verification.' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message || 'Error registering user' });
-    }
-});
-
-// Login endpoint
-app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-    
-    try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-
-        res.json({ success: true, message: 'Login successful', user: data.user });
-    } catch (error) {
-        res.status(401).json({ success: false, message: 'Invalid email or password' });
-    }
-});
-
-// Email verification using 6-digit code
-app.post('/verify', async (req, res) => {
-    const { email, verificationCode } = req.body;
-    
-    try {
-        const { data, error } = await supabase.auth.verifyOtp({
-            email,
-            token: verificationCode,
-            type: 'signup'
-        });
-
-        if (error) {
-            return res.status(400).json({ success: false, message: 'Invalid verification code.' });
-        }
-
-        res.json({ success: true, message: 'Email verified successfully' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Error verifying email' });
-    }
-});
+# Server Configuration
+PORT=5000
+NODE_ENV=development
 ```
 
-### Listings Endpoint
+### Database Setup
 
-We added a new endpoint to handle clothing listings with file uploads:
+1. Create a new Supabase project
+2. Execute the following SQL commands in the Supabase SQL Editor to set up the necessary tables:
 
-```javascript
-// Endpoint to post a new clothing listing
-app.post('/listings', upload.single('image'), async (req, res) => {
-    const { title, size, itemType, condition, washInstructions, dateAvailable, price } = req.body;
-    const { file } = req;
-    const userEmail = req.headers['user-id'];
+```sql
+-- Create listings table
+CREATE TABLE IF NOT EXISTS public.listings (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  user uuid REFERENCES auth.users(id) NOT NULL,
+  title text NOT NULL,
+  size text NOT NULL,
+  itemType text NOT NULL,
+  condition text NOT NULL,
+  washInstructions text NOT NULL,
+  startDate timestamp with time zone NOT NULL,
+  endDate timestamp with time zone NOT NULL,
+  pricePerDay numeric(10,2) NOT NULL,
+  imageURL text,
+  created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
-    console.log("Received listing data:", {
-        userEmail,
-        title,
-        size,
-        itemType,
-        condition,
-        washInstructions,
-        dateAvailable,
-        price,
-        hasFile: !!file
-    });
+-- Create rentals table for tracking rented items
+CREATE TABLE IF NOT EXISTS public.rentals (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  listing_id bigint REFERENCES public.listings(id) NOT NULL,
+  renter_id uuid REFERENCES auth.users(id) NOT NULL,
+  start_date timestamp with time zone NOT NULL,
+  end_date timestamp with time zone NOT NULL,
+  total_amount numeric(10,2) NOT NULL,
+  payment_id text NOT NULL,
+  status text NOT NULL DEFAULT 'pending', -- pending, confirmed, canceled, completed
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
-    if (!userEmail) {
-        return res.status(401).json({ success: false, message: 'User authentication required' });
-    }
+-- Set up Row Level Security (RLS) policies
+ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rentals ENABLE ROW LEVEL SECURITY;
 
-    try {
-        // Get the user UUID from the email
-        const { data: authData, error: authError } = await supabase.auth
-            .admin.listUsers();
-            
-        if (authError) {
-            console.error("Error listing users:", authError);
-            throw authError;
-        }
-        
-        // Find the user with the matching email
-        const user = authData.users.find(u => u.email === userEmail);
-        
-        if (!user) {
-            console.error("User not found with email:", userEmail);
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-        
-        const userId = user.id;
-        console.log("Found user ID:", userId);
-        
-        let imageURL = null;
+-- Allow users to view all listings
+CREATE POLICY "Anyone can view listings" 
+ON public.listings 
+FOR SELECT 
+USING (true);
 
-        if (file) {
-            const fileName = `${Date.now()}_${file.originalname}`;
-            console.log("Uploading file:", fileName);
-            
-            const { data: fileData, error: fileError } = await supabase.storage
-                .from('clothing-images')
-                .upload(fileName, file.buffer, { 
-                    contentType: file.mimetype,
-                    upsert: true
-                });
+-- Allow users to insert their own listings
+CREATE POLICY "Users can insert their own listings" 
+ON public.listings 
+FOR INSERT 
+WITH CHECK (auth.uid() = user);
 
-            if (fileError) {
-                console.error("File upload error:", fileError);
-                throw fileError;
-            }
-            
-            const { data: publicUrlData } = supabase.storage
-                .from('clothing-images')
-                .getPublicUrl(fileName);
-                
-            imageURL = publicUrlData.publicUrl;
-            console.log("File uploaded successfully, URL:", imageURL);
-        }
+-- Allow users to update their own listings
+CREATE POLICY "Users can update their own listings" 
+ON public.listings 
+FOR UPDATE 
+USING (auth.uid() = user);
 
-        console.log("Attempting insert with UUID:", userId);
-        
-        const { data, error } = await supabase
-            .from('listings')
-            .insert([{ 
-                user: userId,
-                title, 
-                size, 
-                itemType, 
-                condition, 
-                washInstructions, 
-                dateAvailable, 
-                price, 
-                imageURL
-            }]);
+-- Allow users to delete their own listings
+CREATE POLICY "Users can delete their own listings" 
+ON public.listings 
+FOR DELETE 
+USING (auth.uid() = user);
 
-        if (error) {
-            console.error("Supabase error details:", error);
-            throw error;
-        }
-        
-        console.log("Insert successful, returned data:", data);
-        res.json({ success: true, message: 'Listing posted successfully', listing: data });
-    } catch (error) {
-        console.error("Full error object:", error);
-        res.status(500).json({ success: false, message: error.message || 'Error posting listing' });
-    }
-});
+-- Allow users to view their own rentals
+CREATE POLICY "Users can view their own rentals" 
+ON public.rentals 
+FOR SELECT 
+USING (auth.uid() = renter_id);
+
+-- Allow users to create rentals
+CREATE POLICY "Users can create rentals" 
+ON public.rentals 
+FOR INSERT 
+WITH CHECK (auth.uid() = renter_id);
+
+-- Allow users to update their own rentals
+CREATE POLICY "Users can update their own rentals" 
+ON public.rentals 
+FOR UPDATE 
+USING (auth.uid() = renter_id);
+
+-- Create storage bucket for clothing images
+INSERT INTO storage.buckets (id, name, public) VALUES ('clothing-images', 'clothing-images', true);
+
+-- Allow public access to images
+CREATE POLICY "Images are publicly accessible"
+ON storage.objects
+FOR SELECT
+USING (bucket_id = 'clothing-images');
+
+-- Allow authenticated users to upload images
+CREATE POLICY "Authenticated users can upload images"
+ON storage.objects
+FOR INSERT
+WITH CHECK (bucket_id = 'clothing-images' AND auth.role() = 'authenticated');
 ```
 
-## Frontend Implementation
+3. Create the RLS (Row Level Security) policies in Supabase for the tables
+4. Create a storage bucket called "clothing-images" for storing listing images
 
-### Authentication Flow (App.js)
+### Square Developer Setup
 
-The main App.js file handles the authentication flow:
-- Registration form for new users
-- Login form for returning users
-- Email verification
-- Dashboard display after successful authentication
+1. Create a Square Developer account at [developer.squareup.com](https://developer.squareup.com)
+2. Create a new application in the Square Dashboard
+3. Get your Sandbox Access Token from the Credentials section
+4. Add it to your `.env` file as `SQUARE_ACCESS_TOKEN`
 
-Key components:
-- Toggle between registration and login modes
-- Email domain validation (@spelman.edu or @morehouse.edu)
-- Password management
-- Verification code handling
+### Installation
 
-### Dashboard Implementation (Dashboard.js)
+1. Clone the repository
+   ```
+   git clone https://github.com/your-username/campus-closet.git
+   cd campus-closet
+   ```
 
-The Dashboard component allows authenticated users to post clothing listings:
+2. Install server dependencies
+   ```
+   cd server
+   npm install
+   ```
 
-```javascript
-import React, { useState } from 'react';
-import axios from 'axios';
-import './Dashboard.css';
+3. Install client dependencies
+   ```
+   cd ../client
+   npm install
+   ```
 
-function Dashboard({ name, email, onLogout }) {
-    // State for clothing listing form
-    const [title, setTitle] = useState('');
-    const [size, setSize] = useState('S');
-    const [itemType, setItemType] = useState('jeans');
-    const [condition, setCondition] = useState('');
-    const [washInstructions, setWashInstructions] = useState('');
-    const [dateAvailable, setDateAvailable] = useState('');
-    const [price, setPrice] = useState('');
-    const [image, setImage] = useState(null);
-    const [message, setMessage] = useState('');
+4. Start the server (development mode)
+   ```
+   cd ../server
+   npm run dev
+   ```
 
-    // Handle form submission
-    const handlePostListing = async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('size', size);
-        formData.append('itemType', itemType);
-        formData.append('condition', condition);
-        formData.append('washInstructions', washInstructions);
-        formData.append('dateAvailable', dateAvailable);
-        formData.append('price', price);
-        if (image) formData.append('image', image);
-        
-        try {
-            const response = await axios.post('/listings', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'user-id': email
-                }
-            });
-            setMessage(response.data.message || 'Listing posted successfully!');
-            // Clear form fields
-            setTitle('');
-            setSize('S');
-            setItemType('jeans');
-            setCondition('');
-            setWashInstructions('');
-            setDateAvailable('');
-            setPrice('');
-            setImage(null);
-        } catch (error) {
-            setMessage('Error posting listing: ' + (error.response?.data?.message || error.message));
-        }
-    };
+5. Start the client (in a new terminal)
+   ```
+   cd ../client
+   npm start
+   ```
 
-    return (
-        <div className="dashboard">
-            <h2>Welcome to Your Dashboard</h2>
-            <div className="user-greeting">
-                <h3>Hello, {name}! </h3>
-                <p>You've successfully logged in with: {email}</p>
-            </div>
+The application should now be running at `http://localhost:3000`
 
-            {/* Clothing Listing Form */}
-            <div className="listing-form">
-                <h3>Post a Clothing Listing</h3>
-                <form onSubmit={handlePostListing}>
-                    <label>Title</label>
-                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
+## Payment Testing
 
-                    <label>Size</label>
-                    <select value={size} onChange={(e) => setSize(e.target.value)}>
-                        <option value="S">S</option>
-                        <option value="M">M</option>
-                        <option value="L">L</option>
-                        <option value="XL">XL</option>
-                        <option value="XXL">XXL</option>
-                    </select>
+For testing Square payments in the sandbox environment, use these test card details:
+- Card Number: `4111 1111 1111 1111`
+- Expiration Date: Any future date
+- CVV: Any 3 digits
+- ZIP Code: Any 5 digits
 
-                    <label>Item Type</label>
-                    <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
-                        <option value="jeans">Jeans</option>
-                        <option value="skirt">Skirt</option>
-                        <option value="pants">Pants</option>
-                        <option value="sweater">Sweater</option>
-                        <option value="shirt">Shirt</option>
-                    </select>
+## Project Structure
 
-                    <label>Condition</label>
-                    <input type="text" value={condition} onChange={(e) => setCondition(e.target.value)} required />
-
-                    <label>Wash Instructions</label>
-                    <input type="text" value={washInstructions} onChange={(e) => setWashInstructions(e.target.value)} required />
-
-                    <label>Date Available</label>
-                    <input type="date" value={dateAvailable} onChange={(e) => setDateAvailable(e.target.value)} required />
-
-                    <label>Price per day ($)</label>
-                    <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required />
-
-                    <label>Upload Image</label>
-                    <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} required />
-
-                    <button type="submit">Post Listing</button>
-                </form>
-            </div>
-            
-            {message && <p className="message">{message}</p>}
-
-            <button className="logout-btn" onClick={onLogout}>Log Out</button>
-        </div>
-    );
-}
+```
+campus-closet/
+│
+├── client/                     # React frontend
+│   ├── public/                 # Static files
+│   ├── src/                    # Source files
+│   │   ├── App.js              # Main App component 
+│   │   ├── Dashboard.js        # Dashboard component
+│   │   ├── PostListingForm.js  # Form for creating listings
+│   │   ├── ListingDetailModal.js # Modal for rental & payment
+│   │   ├── App.css             # Main styles
+│   │   └── Dashboard.css       # Dashboard styles
+│   └── package.json            # Frontend dependencies
+│
+├── server/                     # Node.js backend
+│   ├── server.js               # Express server & API endpoints
+│   └── package.json            # Backend dependencies
+│
+└── README.md                   # This file
 ```
 
-## Troubleshooting Steps
+## License
 
-During implementation, we encountered several issues that required debugging:
+[MIT License](LICENSE)
 
-1. **Row Level Security Policy Violations**:
-   - Problem: "new row violates row-level security policy" when posting listings
-   - Solution: Created proper RLS policies for both the listings table and storage bucket
+## Heroku Deployment
 
-2. **UUID vs Email Mismatch**:
-   - Problem: "invalid input syntax for type uuid: 'email@spelman.edu'"
-   - Solution: Used Supabase Admin API to look up user UUID from email
+To deploy this application to Heroku:
 
-3. **Storage Access Issues**:
-   - Problem: File upload permissions
-   - Solution: Added specific policies for the storage bucket
+1. Create a Heroku account and install the Heroku CLI
+2. Initialize a Git repository if you haven't already:
+   ```
+   git init
+   git add .
+   git commit -m "Initial commit"
+   ```
 
-## Future Enhancements
+3. Create a Heroku app:
+   ```
+   heroku create your-app-name
+   ```
 
-The current implementation could be extended with:
-1. A search interface for browsing available clothing
-2. Payment integration with Stripe or Square
-3. Enhanced styling and mobile responsiveness
-4. Return date functionality
-5. User reviews and ratings
-6. Notifications for bookings and returns
+4. Set up environment variables on Heroku:
+   ```
+   heroku config:set SUPABASE_URL="your_supabase_url"
+   heroku config:set SUPABASE_SERVICE_ROLE_KEY="your_service_role_key"
+   heroku config:set SQUARE_ACCESS_TOKEN="your_square_access_token"
+   heroku config:set NODE_ENV="production"
+   ```
 
-## Deployment Instructions
+5. Push to Heroku:
+   ```
+   git push heroku main
+   ```
 
-To deploy this application on Heroku:
-
-1. Create a new Heroku app
-2. Connect your GitHub repository
-3. Add environment variables:
-   - SUPABASE_URL
-   - SUPABASE_SERVICE_ROLE_KEY
-   - SUPABASE_ANON_KEY
-
-If needed, run 
-```
-heroku config:set SUPABASE_URL="your_supabase_url"
-heroku config:set SUPABASE_SERVICE_ROLE_KEY="your_service_role_key"
-heroku config:set OTHER_ENV_VAR="your_value"
-```
-
-4. Deploy the application
-
-Note: Since we're using Supabase for the database, you don't need to enable the Postgres addon on Heroku.
-
-## Conclusion
-
-This implementation provides a solid foundation for a clothing marketplace tailored for Spelman and Morehouse students. The authentication system ensures only students with valid email addresses can access the platform, and the listings functionality allows users to share clothing items with detailed information and images.
+6. Open your application:
+   ```
+   heroku open
+   ```

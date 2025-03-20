@@ -22,6 +22,30 @@ function App() {
     // Authentication mode state
     const [authMode, setAuthMode] = useState('register'); // Options: 'register' or 'login'
     
+    // Load Square SDK
+    useEffect(() => {
+        // Only load if not already loaded
+        if (!window.Square) {
+            const squareScript = document.createElement('script');
+            squareScript.src = 'https://sandbox.web.squarecdn.com/v1/square.js';
+            squareScript.async = true;
+            squareScript.onload = () => {
+                console.log('Square SDK loaded successfully');
+            };
+            squareScript.onerror = () => {
+                console.error('Failed to load Square SDK');
+            };
+            document.head.appendChild(squareScript);
+            
+            return () => {
+                // Clean up on component unmount
+                if (document.head.contains(squareScript)) {
+                    document.head.removeChild(squareScript);
+                }
+            };
+        }
+    }, []);
+    
     // Add body class for dashboard view when verified
     useEffect(() => {
         if (isVerified) {

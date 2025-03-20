@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import PostListingForm from './PostListingForm';
+import ListingDetailModal from './ListingDetailModal';
 import './Dashboard.css';
 
 function Dashboard({ name, email, onLogout }) {
@@ -10,6 +11,7 @@ function Dashboard({ name, email, onLogout }) {
     const [filteredResults, setFilteredResults] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [selectedListing, setSelectedListing] = useState(null);
 
     useEffect(() => {
         const fetchListings = async () => {
@@ -46,6 +48,37 @@ function Dashboard({ name, email, onLogout }) {
         setFilteredResults(filtered);
     }, [searchQuery, listings]);
 
+    // Function to handle clicking on a listing
+    const handleListingClick = (listing) => {
+        setSelectedListing(listing);
+    };
+
+    // Function to close the modal
+    const handleCloseModal = () => {
+        setSelectedListing(null);
+    };
+
+    // Load Square SDK when the component mounts
+    useEffect(() => {
+        // Only load if not already loaded
+        if (!window.Square) {
+            const script = document.createElement('script');
+            script.src = 'https://sandbox.web.squarecdn.com/v1/square.js';
+            script.async = true;
+            script.onload = () => {
+                console.log('Square SDK loaded');
+            };
+            script.onerror = () => {
+                console.error('Failed to load Square SDK');
+            };
+            document.body.appendChild(script);
+            
+            return () => {
+                document.body.removeChild(script);
+            };
+        }
+    }, []);
+
     // Function to render placeholder content when no listings are available
     const renderPlaceholderContent = () => {
         // Sample placeholder data for visual testing
@@ -56,7 +89,11 @@ function Dashboard({ name, email, onLogout }) {
                 size: 'M',
                 itemType: 'Jacket',
                 pricePerDay: '5.99',
-                imageURL: 'https://via.placeholder.com/300x200?text=Denim+Jacket'
+                imageURL: 'https://via.placeholder.com/300x200?text=Denim+Jacket',
+                condition: 'Like new',
+                washInstructions: 'Machine wash cold',
+                startDate: new Date(2023, 5, 1).toISOString(),
+                endDate: new Date(2023, 8, 30).toISOString()
             },
             {
                 id: 'placeholder-2',
@@ -64,7 +101,11 @@ function Dashboard({ name, email, onLogout }) {
                 size: 'L',
                 itemType: 'Jeans',
                 pricePerDay: '3.50',
-                imageURL: 'https://via.placeholder.com/300x200?text=Black+Jeans'
+                imageURL: 'https://via.placeholder.com/300x200?text=Black+Jeans',
+                condition: 'Good',
+                washInstructions: 'Machine wash cold, tumble dry low',
+                startDate: new Date(2023, 5, 1).toISOString(),
+                endDate: new Date(2023, 8, 30).toISOString()
             },
             {
                 id: 'placeholder-3',
@@ -72,14 +113,22 @@ function Dashboard({ name, email, onLogout }) {
                 size: 'S',
                 itemType: 'Dress',
                 pricePerDay: '6.00',
-                imageURL: 'https://via.placeholder.com/300x200?text=Summer+Dress'
+                imageURL: 'https://via.placeholder.com/300x200?text=Summer+Dress',
+                condition: 'New with tags',
+                washInstructions: 'Hand wash only',
+                startDate: new Date(2023, 5, 1).toISOString(),
+                endDate: new Date(2023, 8, 30).toISOString()
             }
         ];
 
         return (
             <div className="listings-grid">
                 {placeholders.map((item) => (
-                    <div key={item.id} className="listing-card">
+                    <div 
+                        key={item.id} 
+                        className="listing-card" 
+                        onClick={() => handleListingClick(item)}
+                    >
                         <img src={item.imageURL} alt={item.title} />
                         <div className="listing-info">
                             <h3>{item.title}</h3>
@@ -128,7 +177,11 @@ function Dashboard({ name, email, onLogout }) {
                     ) : filteredResults.length > 0 ? (
                         <div className="listings-grid">
                             {filteredResults.map((listing) => (
-                                <div key={listing.id} className="listing-card">
+                                <div 
+                                    key={listing.id} 
+                                    className="listing-card"
+                                    onClick={() => handleListingClick(listing)}
+                                >
                                     <img 
                                         src={listing.imageURL || "https://via.placeholder.com/300x200?text=No+Image"} 
                                         alt={listing.title} 
@@ -151,6 +204,15 @@ function Dashboard({ name, email, onLogout }) {
                         </div>
                     )}
                 </>
+            )}
+
+            {/* Listing Detail Modal */}
+            {selectedListing && (
+                <ListingDetailModal 
+                    listing={selectedListing}
+                    onClose={handleCloseModal}
+                    userEmail={email}
+                />
             )}
 
             {/* Logout Button */}
