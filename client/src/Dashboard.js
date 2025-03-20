@@ -1,187 +1,159 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import PostListingForm from './PostListingForm';
 import './Dashboard.css';
 
 function Dashboard({ name, email, onLogout }) {
-    // State for clothing listing form
-    const [title, setTitle] = useState('');
-    const [size, setSize] = useState('S');
-    const [itemType, setItemType] = useState('jeans');
-    const [condition, setCondition] = useState('');
-    const [washInstructions, setWashInstructions] = useState('');
-    const [startDate, setStartDate] = useState(null);
-    const [endDate, setEndDate] = useState(null);
-    const [pricePerDay, setPricePerDay] = useState('');
-    const [totalPrice, setTotalPrice] = useState(0);
-    const [image, setImage] = useState(null);
-    const [message, setMessage] = useState('');
-    
-    // Search state
+    const [showForm, setShowForm] = useState(false);
+    const [listings, setListings] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
+    const [filteredResults, setFilteredResults] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    // Calculate total price when dates are selected
-    const calculateTotalPrice = () => {
-        if (startDate && endDate && pricePerDay) {
-            const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-            setTotalPrice(days * parseFloat(pricePerDay));
-        }
-    };
+    useEffect(() => {
+        const fetchListings = async () => {
+            setIsLoading(true);
+            try {
+                const response = await axios.get('/search?query=');
+                setListings(response.data.listings || []);
+                setFilteredResults(response.data.listings || []);
+                setError('');
+            } catch (error) {
+                console.error('Error fetching listings:', error);
+                setError('Failed to load listings. Please try again later.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchListings();
+    }, []);
 
     // Handle search
-    const handleSearch = async () => {
-        if (!searchQuery) return;
-        try {
-            const response = await axios.get(`/search?query=${encodeURIComponent(searchQuery)}`);
-            setSearchResults(response.data.listings || []);
-        } catch (error) {
-            setMessage('Error searching listings: ' + (error.response?.data?.message || error.message));
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setFilteredResults(listings);
+            return;
         }
-    };
 
-    // Handle form submission for posting a listing
-    const handlePostListing = async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('size', size);
-        formData.append('itemType', itemType);
-        formData.append('condition', condition);
-        formData.append('washInstructions', washInstructions);
-        formData.append('startDate', startDate.toISOString());
-        formData.append('endDate', endDate.toISOString());
-        formData.append('pricePerDay', pricePerDay);
-        formData.append('totalPrice', totalPrice);
-        if (image) formData.append('image', image);
-        
-        try {
-            const response = await axios.post('/listings', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'user-id': email
-                }
-            });
-            setMessage(response.data.message || 'Listing posted successfully!');
-            setTitle('');
-            setSize('S');
-            setItemType('jeans');
-            setCondition('');
-            setWashInstructions('');
-            setStartDate(null);
-            setEndDate(null);
-            setPricePerDay('');
-            setTotalPrice(0);
-            setImage(null);
-        } catch (error) {
-            setMessage('Error posting listing: ' + (error.response?.data?.message || error.message));
-        }
+        const filtered = listings.filter(listing =>
+            listing.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            listing.size?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            listing.itemType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            listing.condition?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        setFilteredResults(filtered);
+    }, [searchQuery, listings]);
+
+    // Function to render placeholder content when no listings are available
+    const renderPlaceholderContent = () => {
+        // Sample placeholder data for visual testing
+        const placeholders = [
+            {
+                id: 'placeholder-1',
+                title: 'Blue Denim Jacket',
+                size: 'M',
+                itemType: 'Jacket',
+                pricePerDay: '5.99',
+                imageURL: 'https://via.placeholder.com/300x200?text=Denim+Jacket'
+            },
+            {
+                id: 'placeholder-2',
+                title: 'Black Jeans',
+                size: 'L',
+                itemType: 'Jeans',
+                pricePerDay: '3.50',
+                imageURL: 'https://via.placeholder.com/300x200?text=Black+Jeans'
+            },
+            {
+                id: 'placeholder-3',
+                title: 'Summer Dress',
+                size: 'S',
+                itemType: 'Dress',
+                pricePerDay: '6.00',
+                imageURL: 'https://via.placeholder.com/300x200?text=Summer+Dress'
+            }
+        ];
+
+        return (
+            <div className="listings-grid">
+                {placeholders.map((item) => (
+                    <div key={item.id} className="listing-card">
+                        <img src={item.imageURL} alt={item.title} />
+                        <div className="listing-info">
+                            <h3>{item.title}</h3>
+                            <p><strong>Size:</strong> {item.size}</p>
+                            <p><strong>Type:</strong> {item.itemType}</p>
+                            <p><strong>${item.pricePerDay}/day</strong></p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     return (
         <div className="dashboard">
-            <h2>Welcome to Your Dashboard</h2>
-            <div className="user-greeting">
-                <h3>Hello, {name}! </h3>
-                <p>You've successfully logged in with: {email}</p>
-            </div>
+            <h2>Welcome, {name}!</h2>
 
-            {/* Search Feature */}
+            {/* Search Bar */}
             <div className="search-section">
-                <input 
-                    type="text" 
-                    placeholder="Search listings..." 
-                    value={searchQuery} 
+                <input
+                    type="text"
+                    placeholder="Search by title, size, type..."
+                    value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <button onClick={handleSearch}>Search</button>
             </div>
-            
-            {/* Display search results */}
-            <div className="search-results">
-                {searchResults.length > 0 ? (
-                    searchResults.map((listing) => (
-                        <div key={listing.id} className="listing">
-                            <h3>{listing.title}</h3>
-                            <p>Size: {listing.size}</p>
-                            <p>Type: {listing.itemType}</p>
-                            <p>Condition: {listing.condition}</p>
-                            {listing.imageURL && <img src={listing.imageURL} alt={listing.title} className="listing-image" />}
+
+            {/* Toggle Post Listing Form */}
+            <button className="post-listing-btn" onClick={() => setShowForm(!showForm)}>
+                {showForm ? "Cancel" : "Post a Listing"}
+            </button>
+
+            {/* Show Post Listing Form */}
+            {showForm && <PostListingForm email={email} onClose={() => setShowForm(false)} />}
+
+            {/* Listings Grid */}
+            {!showForm && (
+                <>
+                    {isLoading ? (
+                        <p className="status-message">Loading listings...</p>
+                    ) : error ? (
+                        <div className="error-container">
+                            <p className="error-message">{error}</p>
+                            {renderPlaceholderContent()}
                         </div>
-                    ))
-                ) : (
-                    <p>No results found.</p>
-                )}
-            </div>
-            
-            {/* Clothing Listing Form */}
-            <div className="listing-form">
-                <h3>Post a Clothing Listing</h3>
-                <form onSubmit={handlePostListing}>
-                    <label>Title</label>
-                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
-                    
-                    <label>Size</label>
-                    <select value={size} onChange={(e) => setSize(e.target.value)}>
-                        <option value="S">S</option>
-                        <option value="M">M</option>
-                        <option value="L">L</option>
-                        <option value="XL">XL</option>
-                        <option value="XXL">XXL</option>
-                    </select>
+                    ) : filteredResults.length > 0 ? (
+                        <div className="listings-grid">
+                            {filteredResults.map((listing) => (
+                                <div key={listing.id} className="listing-card">
+                                    <img 
+                                        src={listing.imageURL || "https://via.placeholder.com/300x200?text=No+Image"} 
+                                        alt={listing.title} 
+                                    />
+                                    <div className="listing-info">
+                                        <h3>{listing.title}</h3>
+                                        <p><strong>Size:</strong> {listing.size}</p>
+                                        <p><strong>Type:</strong> {listing.itemType}</p>
+                                        <p><strong>${listing.pricePerDay}/day</strong></p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : searchQuery ? (
+                        <p className="status-message">No items matching "{searchQuery}" found.</p>
+                    ) : (
+                        <div>
+                            <p className="status-message">No listings available. Be the first to post!</p>
+                            {renderPlaceholderContent()}
+                        </div>
+                    )}
+                </>
+            )}
 
-                    <label>Item Type</label>
-                    <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
-                        <option value="jeans">Jeans</option>
-                        <option value="skirt">Skirt</option>
-                        <option value="pants">Pants</option>
-                        <option value="sweater">Sweater</option>
-                        <option value="shirt">Shirt</option>
-                    </select>
-                    
-                    <label>Condition</label>
-                    <input type="text" value={condition} onChange={(e) => setCondition(e.target.value)} required />
-                    
-                    <label>Wash Instructions</label>
-                    <input type="text" value={washInstructions} onChange={(e) => setWashInstructions(e.target.value)} required />
-                    
-                    <label>Available Dates</label>
-                    <div className="date-picker">
-                        <DatePicker 
-                            selected={startDate} 
-                            onChange={(date) => { setStartDate(date); calculateTotalPrice(); }}
-                            selectsStart
-                            startDate={startDate}
-                            endDate={endDate}
-                            placeholderText="Start Date"
-                        />
-                        <DatePicker 
-                            selected={endDate} 
-                            onChange={(date) => { setEndDate(date); calculateTotalPrice(); }}
-                            selectsEnd
-                            startDate={startDate}
-                            endDate={endDate}
-                            minDate={startDate}
-                            placeholderText="End Date"
-                        />
-                    </div>
-                    
-                    <label>Price per day ($)</label>
-                    <input type="number" value={pricePerDay} onChange={(e) => { setPricePerDay(e.target.value); calculateTotalPrice(); }} required />
-                    
-                    <p>Total Price: ${totalPrice.toFixed(2)}</p>
-                    
-                    <label>Upload Image</label>
-                    <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} required />
-
-                    <button type="submit">Post Listing</button>
-                </form>
-            </div>
-            
-            {message && <p className="message">{message}</p>}
-
+            {/* Logout Button */}
             <button className="logout-btn" onClick={onLogout}>Log Out</button>
         </div>
     );
