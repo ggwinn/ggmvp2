@@ -310,7 +310,7 @@ app.post('/api/process-payment', async (req, res) => {
       // Add metadata about the transaction
       note: `Rental payment for ${listingData.title}`,
       // Include reference ID for your database
-      referenceId: listingId
+      referenceId: String(listingId)
     });
     
     if (payment.result && payment.result.payment) {
