@@ -3,7 +3,7 @@ const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 const multer = require('multer');
-const { Client, Environment } = require('square');
+const { Client, environments } = require('square');
 const { randomUUID } = require('crypto');
 const cors = require('cors');
 
