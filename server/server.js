@@ -3,7 +3,8 @@ const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 const multer = require('multer');
-const { Client} = require('square');
+const square = require('square');
+
 const { randomUUID } = require('crypto');
 const cors = require('cors');
 
@@ -13,7 +14,7 @@ const cors = require('cors');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Initialize Square client
-const squareClient = new Client({
+const squareClient = new square.Client({
   accessToken: process.env.SQUARE_ACCESS_TOKEN,
   environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
 });
