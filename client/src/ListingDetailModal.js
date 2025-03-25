@@ -16,6 +16,8 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
   // Calculate available date range (from listing's startDate to endDate)
   const availableStartDate = new Date(listing.startDate);
   const availableEndDate = new Date(listing.endDate);
+  const appId = process.env.REACT_APP_SQUARE_APP_ID;
+  const locationId = process.env.REACT_APP_SQUARE_LOCATION_ID;
 
   // Calculate total price when dates change
   useEffect(() => {
@@ -48,7 +50,7 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
         return;
       }
 
-      const payments = window.Square.payments('YOUR_SQUARE_APPLICATION_ID', 'YOUR_LOCATION_ID');
+      const payments = window.Square.payments(appId, locationId);
       const card = await payments.card();
       await card.attach('#card-container');
       
@@ -72,9 +74,19 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
     setErrorMessage('');
     
     try {
-      // Get a payment token from Square
-      const result = await squarePaymentForm.tokenize();
-      if (result.status === 'OK') {
+        // Get a payment token from Square
+        let result;
+        try {
+          result = await squarePaymentForm.tokenize();
+          if (result.status !== 'OK') {
+            throw new Error(result.errors?.[0]?.message || 'Tokenization failed');
+          }
+        } catch (err) {
+          setPaymentStatus('error');
+          setErrorMessage(err.message || 'Tokenization failed');
+          return;
+        }
+      
         // Send the payment token to your server
         const response = await axios.post('/api/process-payment', {
           sourceId: result.token,
@@ -84,21 +96,17 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
           endDate: endDate.toISOString(),
           userEmail: userEmail
         });
-        
+      
         if (response.data.success) {
           setPaymentStatus('success');
         } else {
           setPaymentStatus('error');
           setErrorMessage(response.data.message || 'Payment processing failed');
         }
-      } else {
+      } catch (error) {
         setPaymentStatus('error');
-        setErrorMessage(result.errors[0].message);
-      }
-    } catch (error) {
-      setPaymentStatus('error');
-      setErrorMessage(error.message || 'Payment processing failed');
-    }
+        setErrorMessage(error.message || 'Payment processing failed');
+      }      
   };
 
   return (

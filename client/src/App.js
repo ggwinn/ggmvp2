@@ -27,7 +27,9 @@ function App() {
         // Only load if not already loaded
         if (!window.Square) {
             const squareScript = document.createElement('script');
-            squareScript.src = 'https://sandbox.web.squarecdn.com/v1/square.js';
+            squareScript.src = process.env.NODE_ENV === 'production' 
+                ? 'https://web.squarecdn.com/v1/square.js'
+                : 'https://sandbox.web.squarecdn.com/v1/square.js';
             squareScript.async = true;
             squareScript.onload = () => {
                 console.log('Square SDK loaded successfully');

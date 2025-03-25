@@ -5,6 +5,8 @@ require('dotenv').config();
 const multer = require('multer');
 const square = require('square'); // Add Square client
 const { randomUUID } = require('crypto');
+const cors = require('cors');
+
 // const nodemailer = require('nodemailer'); // For confirmation emails
 
 // Initialize Supabase client
@@ -31,6 +33,7 @@ const transporter = nodemailer.createTransport({
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 // Set up multer for handling file uploads
 const storage = multer.memoryStorage();
