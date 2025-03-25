@@ -13,7 +13,6 @@ const cors = require('cors');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Initialize Square client
-console.log('Environment object:', Environment);
 const squareClient = new Client({
   accessToken: process.env.SQUARE_ACCESS_TOKEN,
   environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
