@@ -3,7 +3,7 @@ const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 const multer = require('multer');
-const { Client, Environment } = require('square');
+const { Client} = require('square');
 const { randomUUID } = require('crypto');
 const cors = require('cors');
 
@@ -16,9 +16,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 console.log('Environment object:', Environment);
 const squareClient = new Client({
   accessToken: process.env.SQUARE_ACCESS_TOKEN,
-  environment: process.env.NODE_ENV === 'production'
-    ? Environment.Production
-    : Environment.Sandbox
+  environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
 });
 // Configure email transporter (if using)
 /*
