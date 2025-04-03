@@ -172,9 +172,10 @@ function Dashboard({ name, email, onLogout }) {
 
     const renderCommunityTab = () => {
         const vendors = [
-            { name: 'Vendor A', url: 'http://spelmancollegesga.weebly.com/my-sisters-closet.html', description: 'Provides white attire for students.' },
-            { name: 'Vendor B', url: 'https://www.instagram.com/stylingsoflylikeag6/', description: 'Offers curated secondhand and vintage clothes for students.' },
-            { name: 'Vendor C', url: 'https://www.instagram.com/breakingthecycleglobal/', description: 'Accepts dontations for prom dresses and suits.' },
+            { name: 'My Sister\'s Closet', url: 'http://spelmancollegesga.weebly.com/my-sisters-closet.html', description: 'Provides white attire for students.' },
+            { name: 'Stylingsoflylikeag6', url: 'https://www.instagram.com/stylingsoflylikeag6/', description: 'Offers curated secondhand and vintage clothes for students.' },
+            { name: 'Breaking The Cycle Global', url: 'https://www.instagram.com/breakingthecycleglobal/', description: 'Accepts dontations for prom dresses and suits.' },
+            { name: 'Duwap Thrifted', url: 'https://www.instagram.com/duwapthrifted/?igsh=cGJqdWNhNGR1MzJr', description: 'AUC Thrift Market.' },
             // You can dynamically add vendors here in the future
         ];
 
