@@ -4,7 +4,8 @@ import axios from 'axios';
 import 'react-datepicker/dist/react-datepicker.css';
 import './ListingDetailModal.css';
 
-function ListingDetailModal({ listing, onClose, userEmail }) {
+function ListingDetailModal({ listing: initialListing, onClose, userEmail }) {
+  const [listing, setListing] = useState(initialListing); // Use initial listing, then fetch details
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [totalPrice, setTotalPrice] = useState(0);
@@ -12,12 +13,32 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [squarePaymentForm, setSquarePaymentForm] = useState(null);
   const [cardButtonRendered, setCardButtonRendered] = useState(false);
-  
+
   // Calculate available date range (from listing's startDate to endDate)
   const availableStartDate = new Date(listing.startDate);
   const availableEndDate = new Date(listing.endDate);
   const appId = process.env.REACT_APP_SQUARE_APP_ID;
   const locationId = process.env.REACT_APP_SQUARE_LOCATION_ID;
+
+  // Fetch listing details when the modal is opened
+  useEffect(() => {
+    const fetchListingDetails = async () => {
+      try {
+        const response = await axios.get(`/listings/${initialListing.id}`);
+        if (response.data.success) {
+          setListing(response.data.listing);
+        } else {
+          console.error('Failed to fetch listing details:', response.data.message);
+          setErrorMessage('Failed to load listing details.');
+        }
+      } catch (error) {
+        console.error('Error fetching listing details:', error);
+        setErrorMessage('Failed to load listing details.');
+      }
+    };
+
+    fetchListingDetails();
+  }, [initialListing.id]);
 
   // Calculate total price when dates change
   useEffect(() => {
@@ -34,7 +55,7 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
     if (window.Square && totalPrice > 0 && !cardButtonRendered) {
       initializeSquarePayment();
     }
-    
+
     return () => {
       // Clean up Square payment form if it exists
       if (squarePaymentForm) {
@@ -53,7 +74,7 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
       const payments = window.Square.payments(appId, locationId);
       const card = await payments.card();
       await card.attach('#card-container');
-      
+
       setSquarePaymentForm(card);
       setCardButtonRendered(true);
     } catch (error) {
@@ -64,64 +85,64 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
 
   const handlePayment = async (event) => {
     event.preventDefault();
-    
+
     if (!startDate || !endDate) {
       setErrorMessage('Please select rental dates');
       return;
     }
-    
+
     setPaymentStatus('processing');
     setErrorMessage('');
-    
+
     try {
-        // Get a payment token from Square
-        let result;
-        try {
-          result = await squarePaymentForm.tokenize();
-          if (result.status !== 'OK') {
-            throw new Error(result.errors?.[0]?.message || 'Tokenization failed');
-          }
-        } catch (err) {
-          setPaymentStatus('error');
-          setErrorMessage(err.message || 'Tokenization failed');
-          return;
+      // Get a payment token from Square
+      let result;
+      try {
+        result = await squarePaymentForm.tokenize();
+        if (result.status !== 'OK') {
+          throw new Error(result.errors?.[0]?.message || 'Tokenization failed');
         }
-      
-        // Send the payment token to your server
-        const response = await axios.post('/api/process-payment', {
-          sourceId: result.token,
-          amount: totalPrice,
-          listingId: listing.id,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          userEmail: userEmail
-        });
-      
-        if (response.data.success) {
-          setPaymentStatus('success');
-        } else {
-          setPaymentStatus('error');
-          setErrorMessage(response.data.message || 'Payment processing failed');
-        }
-      } catch (error) {
+      } catch (err) {
         setPaymentStatus('error');
-        setErrorMessage(error.message || 'Payment processing failed');
-      }      
+        setErrorMessage(err.message || 'Tokenization failed');
+        return;
+      }
+
+      // Send the payment token to your server
+      const response = await axios.post('/api/process-payment', {
+        sourceId: result.token,
+        amount: totalPrice,
+        listingId: listing.id,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        userEmail: userEmail
+      });
+
+      if (response.data.success) {
+        setPaymentStatus('success');
+      } else {
+        setPaymentStatus('error');
+        setErrorMessage(response.data.message || 'Payment processing failed');
+      }
+    } catch (error) {
+      setPaymentStatus('error');
+      setErrorMessage(error.message || 'Payment processing failed');
+    }
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close-btn" onClick={onClose}>×</button>
-        
+
         <div className="modal-grid">
           <div className="modal-image">
             <img src={listing.imageURL} alt={listing.title} />
           </div>
-          
+
           <div className="modal-details">
             <h2>{listing.title}</h2>
-            
+
             <div className="item-details">
               <p><strong>Size:</strong> {listing.size}</p>
               <p><strong>Type:</strong> {listing.itemType}</p>
@@ -129,16 +150,27 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
               <p><strong>Wash Instructions:</strong> {listing.washInstructions}</p>
               <p><strong>Price:</strong> ${listing.pricePerDay}/day</p>
             </div>
-            
+
+            <div className="contact-info">
+              <h3>Contact Information</h3>
+              <p><strong>Phone:</strong> {listing.phone_number}</p>
+            </div>
+
+            <div className="pickup-instructions">
+              <h3>Pick-up & Drop-off</h3>
+              <p><strong>Drop-off:</strong> {listing.drop_off_instructions}</p>
+              <p><strong>Pick-up:</strong> {listing.pick_up_instructions}</p>
+            </div>
+
             <div className="availability">
               <h3>Available for Rent</h3>
               <p>From {availableStartDate.toLocaleDateString()} to {availableEndDate.toLocaleDateString()}</p>
             </div>
-            
+
             {paymentStatus !== 'success' && (
               <form onSubmit={handlePayment} className="rental-form">
                 <h3>Select Rental Period</h3>
-                
+
                 <div className="date-inputs">
                   <div>
                     <label>Start Date</label>
@@ -154,7 +186,7 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
                       className="date-input"
                     />
                   </div>
-                  
+
                   <div>
                     <label>End Date</label>
                     <DatePicker
@@ -170,7 +202,7 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
                     />
                   </div>
                 </div>
-                
+
                 {totalPrice > 0 && (
                   <div className="payment-section">
                     <div className="total-price-display">
@@ -178,13 +210,13 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
                       <span className="price">${totalPrice.toFixed(2)}</span>
                       <span className="days">({Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1} days)</span>
                     </div>
-                    
+
                     <div className="payment-form">
                       <h3>Payment Details</h3>
                       <div id="card-container" className="square-card"></div>
-                      
-                      <button 
-                        type="submit" 
+
+                      <button
+                        type="submit"
                         className="pay-button"
                         disabled={paymentStatus === 'processing' || !cardButtonRendered || !startDate || !endDate}
                       >
@@ -193,7 +225,7 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
                     </div>
                   </div>
                 )}
-                
+
                 {errorMessage && (
                   <div className="error-message">
                     {errorMessage}
@@ -201,7 +233,7 @@ function ListingDetailModal({ listing, onClose, userEmail }) {
                 )}
               </form>
             )}
-            
+
             {paymentStatus === 'success' && (
               <div className="success-message">
                 <h3>Rental Confirmed!</h3>
