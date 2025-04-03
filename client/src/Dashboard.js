@@ -170,20 +170,32 @@ function Dashboard({ name, email, onLogout }) {
         </div>
     );
 
-    const renderCommunityTab = () => (
-        <div className="community-tab">
-            <h2>Community Vendors</h2>
-            <p>In addition to peer-to-peer rentals, Community Closet is proud to partner with local vendors to offer a wider range of clothing options and services to our users.</p>
-            <p>Here's a list of some of our featured community vendors:</p>
-            <ul>
-                <li>**Vendor A:** [Brief description of Vendor A and their offerings]</li>
-                <li>**Vendor B:** [Brief description of Vendor B and their offerings]</li>
-                <li>**Vendor C:** [Brief description of Vendor C and their offerings]</li>
-                {/* You can dynamically add vendors here in the future */}
-            </ul>
-            <p>Stay tuned as we continue to expand our network of community partners to bring you even more choices and support local businesses!</p>
-        </div>
-    );
+    const renderCommunityTab = () => {
+        const vendors = [
+            { name: 'Vendor A', url: 'http://spelmancollegesga.weebly.com/my-sisters-closet.html', description: 'Provides white attire for students.' },
+            { name: 'Vendor B', url: 'https://www.instagram.com/stylingsoflylikeag6/', description: 'Offers curated secondhand and vintage clothes for students.' },
+            { name: 'Vendor C', url: 'https://www.instagram.com/breakingthecycleglobal/', description: 'Accepts dontations for prom dresses and suits.' },
+            // You can dynamically add vendors here in the future
+        ];
+
+        return (
+            <div className="community-tab">
+                <h2>Community Vendors</h2>
+                <p>In addition to peer-to-peer rentals, Community Closet is proud to partner with local vendors to offer a wider range of clothing options and services to our users.</p>
+                <p>Here's a list of some of our featured community vendors:</p>
+                <ul>
+                    {vendors.map((vendor, index) => (
+                        <li key={index}>
+                            <a href={vendor.url} target="_blank" rel="noopener noreferrer">
+                                <strong>{vendor.name}</strong>
+                            </a> - {vendor.description}
+                        </li>
+                    ))}
+                </ul>
+                <p>Stay tuned as we continue to expand our network of community partners to bring you even more choices and support local businesses!</p>
+            </div>
+        );
+    };
 
     return (
         <div className="dashboard">
