@@ -163,17 +163,25 @@ function Dashboard({ name, email, onLogout }) {
 
     const renderAboutMeTab = () => (
         <div className="about-me-tab">
-            <h2>About Me</h2>
-            <p>This is the about me section. You can add information about yourself here.</p>
-            {/* Add your about me content */}
+            <h2>About Community Closet</h2>
+            <p>Community Closet is a platform designed to connect students at Spelman and Morehouse, providing an easy and affordable way to rent clothing from each other. We believe in fostering a sustainable and collaborative campus environment where sharing resources is key.</p>
+            <p>Our mission is to make fashion accessible to everyone while reducing textile waste. By renting instead of buying new, students can save money, experiment with different styles, and contribute to a greener campus.</p>
+            <p>Whether you're looking for an outfit for a special occasion, a casual everyday look, or something in between, Community Closet is here to help you find what you need within your campus community.</p>
         </div>
     );
 
     const renderCommunityTab = () => (
         <div className="community-tab">
-            <h2>Community</h2>
-            <p>This is the community section. You can add information about the community or features related to it.</p>
-            {/* Add your community content */}
+            <h2>Community Vendors</h2>
+            <p>In addition to peer-to-peer rentals, Community Closet is proud to partner with local vendors to offer a wider range of clothing options and services to our users.</p>
+            <p>Here's a list of some of our featured community vendors:</p>
+            <ul>
+                <li>**Vendor A:** [Brief description of Vendor A and their offerings]</li>
+                <li>**Vendor B:** [Brief description of Vendor B and their offerings]</li>
+                <li>**Vendor C:** [Brief description of Vendor C and their offerings]</li>
+                {/* You can dynamically add vendors here in the future */}
+            </ul>
+            <p>Stay tuned as we continue to expand our network of community partners to bring you even more choices and support local businesses!</p>
         </div>
     );
 
@@ -193,13 +201,13 @@ function Dashboard({ name, email, onLogout }) {
                     className={`tab-button ${activeTab === 'about' ? 'active' : ''}`}
                     onClick={() => handleTabClick('about')}
                 >
-                    About Me
+                    About Us
                 </button>
                 <button
                     className={`tab-button ${activeTab === 'community' ? 'active' : ''}`}
                     onClick={() => handleTabClick('community')}
                 >
-                    Community
+                    Vendors
                 </button>
             </div>
 
