@@ -12,6 +12,7 @@ function Dashboard({ name, email, onLogout }) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedListing, setSelectedListing] = useState(null);
+    const [sortOrder, setSortOrder] = useState(''); // State to track sort order
 
     useEffect(() => {
         const fetchListings = async () => {
@@ -31,129 +32,70 @@ function Dashboard({ name, email, onLogout }) {
         fetchListings();
     }, []);
 
-    // Handle search
+    // Handle search and sort
     useEffect(() => {
-        if (!searchQuery.trim()) {
-            setFilteredResults(listings);
-            return;
+        let currentResults = listings;
+
+        if (searchQuery.trim()) {
+            currentResults = listings.filter(listing =>
+                listing.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                listing.size?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                listing.itemType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                listing.condition?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
         }
 
-        const filtered = listings.filter(listing =>
-            listing.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            listing.size?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            listing.itemType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            listing.condition?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        sortListings(currentResults);
+        setFilteredResults(currentResults);
 
-        setFilteredResults(filtered);
-    }, [searchQuery, listings]);
+    }, [searchQuery, listings, sortOrder]); // Add sortOrder as a dependency
 
-    // Function to handle clicking on a listing
+    const sortListings = (itemsToSort) => {
+        const sortedItems = [...itemsToSort]; // Create a copy to avoid mutating the original state
+        if (sortOrder === 'lowToHigh') {
+            sortedItems.sort((a, b) => parseFloat(a.pricePerDay) - parseFloat(b.pricePerDay));
+        } else if (sortOrder === 'highToLow') {
+            sortedItems.sort((a, b) => parseFloat(b.pricePerDay) - parseFloat(a.pricePerDay));
+        }
+        return sortedItems;
+    };
+
+    const handleSortChange = (e) => {
+        setSortOrder(e.target.value);
+    };
+
     const handleListingClick = (listing) => {
         setSelectedListing(listing);
     };
 
-    // Function to close the modal
     const handleCloseModal = () => {
         setSelectedListing(null);
     };
 
-    // Load Square SDK when the component mounts
-    useEffect(() => {
-        // Only load if not already loaded
-        if (!window.Square) {
-            const script = document.createElement('script');
-            script.src = 'https://sandbox.web.squarecdn.com/v1/square.js';
-            script.async = true;
-            script.onload = () => {
-                console.log('Square SDK loaded');
-            };
-            script.onerror = () => {
-                console.error('Failed to load Square SDK');
-            };
-            document.body.appendChild(script);
-            
-            return () => {
-                document.body.removeChild(script);
-            };
-        }
-    }, []);
-
-    // Function to render placeholder content when no listings are available
-    const renderPlaceholderContent = () => {
-        // Sample placeholder data for visual testing
-        const placeholders = [
-            {
-                id: 'placeholder-1',
-                title: 'Blue Denim Jacket',
-                size: 'M',
-                itemType: 'Jacket',
-                pricePerDay: '5.99',
-                imageURL: 'https://via.placeholder.com/300x200?text=Denim+Jacket',
-                condition: 'Like new',
-                washInstructions: 'Machine wash cold',
-                startDate: new Date(2023, 5, 1).toISOString(),
-                endDate: new Date(2023, 8, 30).toISOString()
-            },
-            {
-                id: 'placeholder-2',
-                title: 'Black Jeans',
-                size: 'L',
-                itemType: 'Jeans',
-                pricePerDay: '3.50',
-                imageURL: 'https://via.placeholder.com/300x200?text=Black+Jeans',
-                condition: 'Good',
-                washInstructions: 'Machine wash cold, tumble dry low',
-                startDate: new Date(2023, 5, 1).toISOString(),
-                endDate: new Date(2023, 8, 30).toISOString()
-            },
-            {
-                id: 'placeholder-3',
-                title: 'Summer Dress',
-                size: 'S',
-                itemType: 'Dress',
-                pricePerDay: '6.00',
-                imageURL: 'https://via.placeholder.com/300x200?text=Summer+Dress',
-                condition: 'New with tags',
-                washInstructions: 'Hand wash only',
-                startDate: new Date(2023, 5, 1).toISOString(),
-                endDate: new Date(2023, 8, 30).toISOString()
-            }
-        ];
-
-        return (
-            <div className="listings-grid">
-                {placeholders.map((item) => (
-                    <div 
-                        key={item.id} 
-                        className="listing-card" 
-                        onClick={() => handleListingClick(item)}
-                    >
-                        <img src={item.imageURL} alt={item.title} />
-                        <div className="listing-info">
-                            <h3>{item.title}</h3>
-                            <p><strong>Size:</strong> {item.size}</p>
-                            <p><strong>Type:</strong> {item.itemType}</p>
-                            <p><strong>${item.pricePerDay}/day</strong></p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
-    };
+    // ... (rest of your Dashboard component)
 
     return (
         <div className="dashboard">
             <h2>Welcome, {name}!</h2>
 
-            {/* Search Bar */}
-            <div className="search-section">
-                <input
-                    type="text"
-                    placeholder="Search by title, size, type..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
+            {/* Search and Sort Section */}
+            <div className="search-sort-section">
+                <div className="search-section">
+                    <input
+                        type="text"
+                        placeholder="Search by title, size, type..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <div className="sort-section">
+                    <label htmlFor="sortOrder">Sort by Price:</label>
+                    <select id="sortOrder" value={sortOrder} onChange={handleSortChange}>
+                        <option value="">None</option>
+                        <option value="lowToHigh">Low to High</option>
+                        <option value="highToLow">High to Low</option>
+                    </select>
+                </div>
             </div>
 
             {/* Toggle Post Listing Form */}
@@ -177,14 +119,14 @@ function Dashboard({ name, email, onLogout }) {
                     ) : filteredResults.length > 0 ? (
                         <div className="listings-grid">
                             {filteredResults.map((listing) => (
-                                <div 
-                                    key={listing.id} 
+                                <div
+                                    key={listing.id}
                                     className="listing-card"
                                     onClick={() => handleListingClick(listing)}
                                 >
-                                    <img 
-                                        src={listing.imageURL || "https://via.placeholder.com/300x200?text=No+Image"} 
-                                        alt={listing.title} 
+                                    <img
+                                        src={listing.imageURL || "https://via.placeholder.com/300x200?text=No+Image"}
+                                        alt={listing.title}
                                     />
                                     <div className="listing-info">
                                         <h3>{listing.title}</h3>
@@ -208,7 +150,7 @@ function Dashboard({ name, email, onLogout }) {
 
             {/* Listing Detail Modal */}
             {selectedListing && (
-                <ListingDetailModal 
+                <ListingDetailModal
                     listing={selectedListing}
                     onClose={handleCloseModal}
                     userEmail={email}
