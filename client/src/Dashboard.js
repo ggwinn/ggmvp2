@@ -13,6 +13,7 @@ function Dashboard({ name, email, onLogout }) {
     const [error, setError] = useState('');
     const [selectedListing, setSelectedListing] = useState(null);
     const [sortOrder, setSortOrder] = useState(''); // State to track sort order
+    const [activeTab, setActiveTab] = useState('listings'); // State to manage active tab
 
     useEffect(() => {
         const fetchListings = async () => {
@@ -82,12 +83,12 @@ function Dashboard({ name, email, onLogout }) {
         setSelectedListing(null);
     };
 
-    // ... (rest of your Dashboard component)
+    const handleTabClick = (tab) => {
+        setActiveTab(tab);
+    };
 
-    return (
-        <div className="dashboard">
-            <h2>Welcome, {name}!</h2>
-
+    const renderListingsTab = () => (
+        <>
             {/* Search and Sort Section */}
             <div className="search-sort-section">
                 <div className="search-section">
@@ -124,7 +125,7 @@ function Dashboard({ name, email, onLogout }) {
                     ) : error ? (
                         <div className="error-container">
                             <p className="error-message">{error}</p>
-                            {renderPlaceholderContent()}
+                            {/* You might want to add a placeholder content function here */}
                         </div>
                     ) : filteredResults.length > 0 ? (
                         <div className="listings-grid">
@@ -152,11 +153,60 @@ function Dashboard({ name, email, onLogout }) {
                     ) : (
                         <div>
                             <p className="status-message">No listings available. Be the first to post!</p>
-                            {renderPlaceholderContent()}
+                            {/* You might want to add a placeholder content function here */}
                         </div>
                     )}
                 </>
             )}
+        </>
+    );
+
+    const renderAboutMeTab = () => (
+        <div className="about-me-tab">
+            <h2>About Me</h2>
+            <p>This is the about me section. You can add information about yourself here.</p>
+            {/* Add your about me content */}
+        </div>
+    );
+
+    const renderCommunityTab = () => (
+        <div className="community-tab">
+            <h2>Community</h2>
+            <p>This is the community section. You can add information about the community or features related to it.</p>
+            {/* Add your community content */}
+        </div>
+    );
+
+    return (
+        <div className="dashboard">
+            <h2>Welcome, {name}!</h2>
+
+            {/* Tab Navigation */}
+            <div className="dashboard-tabs">
+                <button
+                    className={`tab-button ${activeTab === 'listings' ? 'active' : ''}`}
+                    onClick={() => handleTabClick('listings')}
+                >
+                    Listings
+                </button>
+                <button
+                    className={`tab-button ${activeTab === 'about' ? 'active' : ''}`}
+                    onClick={() => handleTabClick('about')}
+                >
+                    About Me
+                </button>
+                <button
+                    className={`tab-button ${activeTab === 'community' ? 'active' : ''}`}
+                    onClick={() => handleTabClick('community')}
+                >
+                    Community
+                </button>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'listings' && renderListingsTab()}
+            {activeTab === 'about' && renderAboutMeTab()}
+            {activeTab === 'community' && renderCommunityTab()}
 
             {/* Listing Detail Modal */}
             {selectedListing && (

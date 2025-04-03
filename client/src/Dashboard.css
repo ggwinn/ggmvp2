@@ -1,217 +1,54 @@
 /* Dashboard.css */
 
-/* Import Google Fonts - same as App.css for consistency */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+/* ... (Previous styles) ... */
 
-/* General Styles */
-* {
-  box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
-  margin: 0;
-  padding: 0;
-}
-
-/* Body Styles when in Dashboard View */
-body.dashboard-view {
-  font-family: 'Inter', sans-serif; /* Sets the default font */
-  background-color: #f8f9fa; /* Sets a light gray background color */
-  color: #333; /* Sets a dark gray text color */
-  display: block; /* Overrides default flex display from App.css */
-  height: auto; /* Allows the body to expand based on content */
-  padding: 0;
-  margin: 0;
-}
-
-/* Dashboard Container */
-.dashboard {
-  max-width: 1200px; /* Sets a maximum width for the dashboard content */
-  margin: 0 auto; /* Centers the dashboard horizontally */
-  padding: 30px 20px; /* Adds padding around the dashboard content */
-  background-color: #f8f9fa; /* Sets the background color of the dashboard */
-  min-height: 100vh; /* Ensures the dashboard takes up at least the full height of the viewport */
-}
-
-/* Headings */
-.dashboard h2 {
-  font-size: 28px; /* Sets the font size for h2 elements within the dashboard */
-  font-weight: 600; /* Sets the font weight for h2 elements */
-  text-align: center; /* Centers the text of h2 elements */
-  margin-bottom: 25px; /* Adds margin below h2 elements */
-  color: #2c3e50; /* Sets the text color for h2 elements */
-}
-
-/* Search and Sort Section */
-.search-sort-section {
-    display: flex;
-    align-items: center; /* Vertically align search and sort */
-    justify-content: center; /* Center the whole section */
-    margin-bottom: 30px;
-    gap: 20px; /* Space between search and sort */
-    max-width: 800px; /* Adjust as needed */
-    margin-left: auto;
-    margin-right: auto;
-}
-
-/* Search Section */
-.search-section {
-  flex-grow: 1; /* Allow search to take up more space */
-  position: relative; /* Sets position relative for potential absolute positioning of elements within */
-  max-width: 400px; /* Adjust as needed */
-}
-
-.search-section input {
-  width: 100%; /* Makes the input field take up the full width of its container */
-  padding: 14px 20px; /* Adds padding inside the input field */
-  border: 2px solid #e0e0e0; /* Adds a solid gray border */
-  border-radius: 8px; /* Rounds the corners of the input field */
-  font-size: 16px; /* Sets the font size for input text */
-  transition: all 0.2s ease; /* Adds a smooth transition effect for focus */
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); /* Adds a subtle box shadow */
-}
-
-.search-section input:focus {
-  border-color: #3498db; /* Changes the border color on focus */
-  outline: none; /* Removes the default focus outline */
-  box-shadow: 0 2px 15px rgba(52, 152, 219, 0.15); /* Adds a more pronounced box shadow on focus */
-}
-
-/* Sort Section */
-.sort-section {
+/* Tab Navigation */
+.dashboard-tabs {
   display: flex;
-  align-items: center;
+  justify-content: flex-start; /* Align tabs to the left */
+  margin-bottom: 20px;
+  border-bottom: 1px solid #ccc;
 }
 
-.sort-section label {
-  margin-right: 8px;
-  font-weight: bold;
-  font-size: 16px;
-  color: #555;
-}
-
-.sort-section select {
-  padding: 12px 15px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+.tab-button {
+  background: none;
+  border: none;
+  padding: 10px 15px;
   font-size: 16px;
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  color: #555;
+  border-bottom: 2px solid transparent; /* Initially transparent border */
+  transition: border-bottom-color 0.3s ease;
 }
 
-.sort-section select:focus {
-  border-color: #3498db;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
+.tab-button:hover {
+  color: #333;
 }
 
-/* Action Buttons */
-.post-listing-btn {
-  background: #3498db; /* Sets a blue background color */
-  color: white; /* Sets white text color */
-  border: none; /* Removes the default button border */
-  padding: 14px 25px; /* Adds padding inside the button */
-  border-radius: 8px; /* Rounds the corners of the button */
-  font-size: 16px; /* Sets the font size for button text */
-  font-weight: 600; /* Sets the font weight for button text */
-  cursor: pointer; /* Changes the cursor to a pointer on hover */
-  display: block; /* Makes the button a block element, taking up full width */
-  margin: 0 auto 30px; /* Centers the button horizontally and adds margin below */
-  max-width: 220px; /* Sets a maximum width for the button */
-  transition: all 0.2s ease; /* Adds a smooth transition effect for hover */
-  box-shadow: 0 4px 10px rgba(52, 152, 219, 0.2); /* Adds a subtle box shadow */
+.tab-button.active {
+  color: #3498db;
+  border-bottom-color: #3498db; /* Blue border for active tab */
+  font-weight: bold;
 }
 
-.post-listing-btn:hover {
-  background: #2980b9; /* Darkens the background color on hover */
-  transform: translateY(-2px); /* Slightly moves the button up on hover */
-  box-shadow: 0 6px 15px rgba(52, 152, 219, 0.25); /* Adds a more pronounced box shadow on hover */
+/* Styles for About Me and Community Tab Content (Optional) */
+.about-me-tab,
+.community-tab {
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
-/* Listings Grid */
-.listings-grid {
-  display: grid; /* Uses grid layout for the listings */
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Creates a responsive grid with minimum width of 280px per column */
-  gap: 25px; /* Adds spacing between grid items */
-  padding: 10px; /* Adds padding around the grid */
-  justify-content: center; /* Centers the grid items horizontally */
-  width: 100%; /* Makes the grid take up the full width of its container */
-  margin: 0 auto 40px; /* Centers the grid horizontally and adds margin below */
+.about-me-tab h2,
+.community-tab h2 {
+  font-size: 24px;
+  margin-bottom: 15px;
+  color: #2c3e50;
 }
 
-/* Media Queries for Responsive Grid */
-@media (max-width: 768px) {
-  .listings-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Adjusts grid for smaller screens */
-    gap: 20px;
-  }
-}
-
-@media (max-width: 480px) {
-  .listings-grid {
-    grid-template-columns: 1fr; /* Makes the grid a single column on very small screens */
-    gap: 15px;
-  }
-}
-
-/* Listing Card */
-.listing-card {
-  background: white; /* Sets a white background color */
-  border-radius: 12px; /* Rounds the corners of the card */
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* Adds a subtle box shadow */
-  overflow: hidden; /* Ensures content doesn't overflow rounded corners */
-  position: relative; /* Sets position relative for potential absolute positioning within */
-  display: flex; /* Uses flexbox for layout */
-  flex-direction: column; /* Arranges card content vertically */
-  transition: all 0.3s ease; /* Adds a smooth transition effect for hover */
-  height: 100%; /* Makes the card take up the full height of its grid cell */
-}
-
-/* Hover Effect */
-.listing-card:hover {
-  transform: translateY(-5px); /* Slightly moves the card up on hover */
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); /* Adds a more pronounced box shadow on hover */
-}
-
-/* Listing Image */
-.listing-card img {
-  width: 100%; /* Makes the image take up the full width of the card */
-  height: 200px; /* Sets a fixed height for the image */
-  object-fit: cover; /* Ensures the image covers the area without distortion */
-}
-
-/* Listing Info */
-.listing-info {
-  padding: 16px; /* Adds padding inside the info section */
-  flex-grow: 1; /* Allows the info section to grow and fill remaining space */
-  display: flex; /* Uses flexbox for layout */
-  flex-direction: column; /* Arranges info content vertically */
-}
-
-.listing-info h3 {
-  font-size: 18px; /* Sets the font size for the title */
-  font-weight: 600; /* Sets the font weight for the title */
-  margin-bottom: 8px; /* Adds margin below the title */
-  color: #2c3e50; /* Sets the text color for the title */
-}
-
-.listing-info p {
-  font-size: 14px; /* Sets the font size for paragraphs */
-  color: #666; /* Sets a gray text color for paragraphs */
-  margin: 4px 0; /* Adds margin above and below paragraphs */
-}
-
-.listing-info p:last-child {
-  margin-top: auto; /* Pushes the last paragraph (likely price) to the bottom */
-  font-weight: 600; /* Sets the font weight for the last paragraph */
-  color: #3498db; /* Sets a blue text color for the last paragraph */
-  font-size: 16px; /* Sets the font size for the last paragraph */
-  padding-top: 8px; /* Adds padding above the last paragraph */
-}
-
-/* Listing Form */
-.listing-form {
-  background: white; /* Sets a white background color */
-  padding: 30px; /* Adds padding inside the form */
-  border-radius: 12px; /* Rounds the corners of the form */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Adds a subtle box shadow */
-  max-width: 650px; /* Sets a maximum width for the form */
-  margin: 0 auto 40px; /* Centers the form horizontally and adds margin below */
+.about-me-tab p,
+.community-tab p {
+  line-height: 1.6;
+  color: #666;
 }
