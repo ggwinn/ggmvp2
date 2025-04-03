@@ -45,18 +45,28 @@ function Dashboard({ name, email, onLogout }) {
             );
         }
 
-        sortListings(currentResults);
-        setFilteredResults(currentResults);
+        const sortedResults = sortListings(currentResults);
+        setFilteredResults(sortedResults);
 
     }, [searchQuery, listings, sortOrder]); // Add sortOrder as a dependency
 
     const sortListings = (itemsToSort) => {
-        const sortedItems = [...itemsToSort]; // Create a copy to avoid mutating the original state
-        if (sortOrder === 'lowToHigh') {
-            sortedItems.sort((a, b) => parseFloat(a.pricePerDay) - parseFloat(b.pricePerDay));
-        } else if (sortOrder === 'highToLow') {
-            sortedItems.sort((a, b) => parseFloat(b.pricePerDay) - parseFloat(a.pricePerDay));
-        }
+        const sortedItems = [...itemsToSort];
+        sortedItems.sort((a, b) => {
+            const priceA = parseFloat(a.pricePerDay);
+            const priceB = parseFloat(b.pricePerDay);
+
+            if (isNaN(priceA) && isNaN(priceB)) return 0;
+            if (isNaN(priceA)) return 1; // Put items with no price at the end
+            if (isNaN(priceB)) return -1;
+
+            if (sortOrder === 'lowToHigh') {
+                return priceA - priceB;
+            } else if (sortOrder === 'highToLow') {
+                return priceB - priceA;
+            }
+            return 0; // No sorting
+        });
         return sortedItems;
     };
 
